@@ -1,0 +1,26 @@
+import DashboardLayout from "@/components/DashboardLayout";
+import { DataExportButtons } from "@/components/DataExportButtons";
+import { Input } from "@/components/ui/input";
+import { trpc } from "@/lib/trpc";
+import { ArrowLeft, Loader2, Search, Users } from "lucide-react";
+import { useMemo, useState } from "react";
+
+const statusLabels = { received: "تم الاستلام", in_review: "قيد المراجعة", in_progress: "قيد التنفيذ", completed: "مكتمل" } as const;
+const customerExportColumns = [
+  { key: "name", label: "اسم العميل" },
+  { key: "email", label: "البريد الإلكتروني" },
+  { key: "phone", label: "رقم التواصل" },
+  { key: "requestCount", label: "عدد الطلبات" },
+  { key: "trackingPhone", label: "جوال التتبع" },
+  { key: "latestCategory", label: "آخر خدمة" },
+  { key: "latestStatus", label: "حالة آخر طلب" },
+] as const;
+
+export default function CustomersDashboard() {
+  const [query, setQuery] = useState("");
+  const customers = trpc.customers.list.useQuery();
+  const visibleCustomers = useMemo(() => (customers.data || []).filter((customer) => [customer.fullName, customer.email, customer.phone].filter(Boolean).join(" ").toLowerCase().includes(query.trim().toLowerCase())), [customers.data, query]);
+  const exportRows = useMemo(() => visibleCustomers.map((customer) => ({ name: customer.fullName, email: customer.email || "", phone: customer.phone || "", requestCount: customer.requestCount, trackingPhone: customer.phone || "", latestCategory: customer.latestRequest?.category || "", latestStatus: customer.latestRequest ? statusLabels[customer.latestRequest.status] : "لا يوجد" })), [visibleCustomers]);
+
+  return <DashboardLayout><main className="space-y-7" dir="rtl"><div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end"><div><span className="section-kicker">CMS العملاء</span><h1 className="font-display mt-4 text-3xl font-extrabold tracking-[-0.065em] sm:text-4xl">العملاء وسجل طلباتهم</h1><p className="mt-3 max-w-2xl text-sm leading-7 text-[#60778f]">راجع بيانات العميل المرتبطة بالطلبات، ثم افتح سجله الكامل للتعامل مع الحالة والتحديثات والمرفقات.</p></div><div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto"><div className="relative w-full lg:max-w-sm"><Search className="absolute right-3 top-3 h-4 w-4 text-[#6e8aa4]" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ابحث بالاسم أو البريد أو رقم الجوال" className="h-10 rounded-xl border-[#c8daec] bg-white pr-9" /></div><DataExportButtons columns={[...customerExportColumns]} rows={exportRows} title="العملاء وسجل طلباتهم" subtitle="تصدير العملاء الظاهرين بعد تطبيق البحث." filename="maalamati-customers" /></div></div>{customers.isLoading ? <div className="portal-shadow flex min-h-48 items-center justify-center gap-3 rounded-3xl border border-[#dce8f6] bg-white text-sm text-[#60778f]"><Loader2 className="h-5 w-5 animate-spin text-[#0878f9]" />يتم تحميل العملاء…</div> : customers.isError ? <div className="rounded-2xl border border-[#ffd1d5] bg-[#fff4f5] p-5 text-sm text-[#a9323f]">تعذر تحميل قائمة العملاء. حاول تحديث الصفحة.</div> : visibleCustomers.length ? <div className="grid gap-4 xl:grid-cols-2">{visibleCustomers.map((customer) => <article key={customer.id} className="rounded-3xl border border-[#dce8f6] bg-white p-5 transition-shadow hover:shadow-[0_14px_28px_rgba(28,104,182,.08)]"><div className="flex items-start justify-between gap-4"><div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#eaf3ff] text-[#0878f9]"><Users className="h-5 w-5" /></span><div><h2 className="font-display text-lg font-extrabold">{customer.fullName}</h2><p className="mt-1 text-xs text-[#70859b]">{customer.email || customer.phone || "بيانات التواصل غير مكتملة"}</p></div></div><span className="rounded-full bg-[#f5faff] px-3 py-1.5 text-xs font-bold text-[#0878f9]">{customer.requestCount} طلب</span></div><div className="mt-5 border-t border-[#e7eff8] pt-4">{customer.latestRequest ? <a href={customer.phone ? `/track?phone=${encodeURIComponent(customer.phone)}` : `/customers/${customer.id}`} className="flex items-center justify-between rounded-xl bg-[#f7fbff] p-3 text-sm transition-colors hover:bg-[#eaf3ff]"><div><p className="text-xs font-extrabold text-[#0878f9]" dir="ltr">{customer.phone || "رقم الجوال غير متاح"}</p><p className="mt-1 font-bold">{customer.latestRequest.category}</p></div><span className="flex items-center gap-2 text-xs font-bold text-[#31516e]"><span className="rounded-full bg-white px-2 py-1">{statusLabels[customer.latestRequest.status]}</span><ArrowLeft className="h-4 w-4" /></span></a> : <p className="text-sm text-[#70859b]">لا توجد طلبات مرتبطة بهذا العميل بعد.</p>}</div><a href={`/customers/${customer.id}`} className="mt-4 inline-flex items-center gap-2 text-sm font-extrabold text-[#0878f9]">عرض سجل العميل الكامل <ArrowLeft className="h-4 w-4" /></a></article>)}</div> : <div className="rounded-3xl border border-dashed border-[#c8daec] bg-white p-10 text-center"><Users className="mx-auto h-10 w-10 text-[#0878f9]" /><p className="font-display mt-4 text-xl font-extrabold">لا توجد نتائج مطابقة</p><p className="mt-2 text-sm text-[#70859b]">سيظهر العملاء هنا عند إنشاء طلبات مرتبطة بحساباتهم أو ببياناتهم.</p></div>}</main></DashboardLayout>;
+}

@@ -1,0 +1,19 @@
+{
+  "name": "معاملاتي",
+  "short_name": "معاملاتي",
+  "description": "تطبيق لإدارة طلبات الخدمات وتعقّب المعاملات بوضوح.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f9ff",
+  "theme_color": "#0878f9",
+  "icons": [
+    {
+      "src": "/manus-storage/maalamatak-brandmark_6e18d835.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
