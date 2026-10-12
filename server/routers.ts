@@ -77,6 +77,7 @@ import { PUSH_PUBLIC_KEY } from "./pushPublic";
 import { storagePut } from "./storage";
 import { answerPublicAssistant, redactAssistantMessage } from "./publicAssistant";
 import { listTeamPrivateMessages } from "./teamMessages";
+import { listEstimatedReceivables } from "./estimatedReceivables";
 
 const requestStatuses = ["received", "in_review", "in_progress", "completed"] as const;
 const requestPriorities = ["low", "normal", "high", "urgent"] as const;
@@ -697,6 +698,13 @@ export const appRouter = router({
     clearRead: teamProcedure.mutation(async ({ ctx }) => {
       await clearReadTeamNotifications(ctx.user.id);
       return { success: true } as const;
+    }),
+  }),
+  estimatedReceivables: router({
+    mine: agentProcedure.query(async ({ ctx }) => {
+      const staff = await getActiveStaffAccountForUser(ctx.user.id);
+      if (!staff?.permissions.canViewAssigned) throw new TRPCError({ code: "FORBIDDEN", message: "لا تملك صلاحية عرض مستحقات الطلبات الموكلة." });
+      return listEstimatedReceivables(ctx.user.id);
     }),
   }),
   conversation: router({
