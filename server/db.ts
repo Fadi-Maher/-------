@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, lte, ne, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
@@ -820,8 +821,9 @@ export async function createAssignedRequestUpdateWithAudit(input: {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db.transaction(async (tx) => {
-    const before = (await tx.select().from(transactionRequests).where(and(eq(transactionRequests.id, input.requestId), eq(transactionRequests.assigneeId, input.actorUserId), or(isNull(transactionRequests.quoteSelectedAt), isNotNull(transactionRequests.providerAcceptedAt)))).limit(1))[0];
+    const before = (await tx.select().from(transactionRequests).where(and(eq(transactionRequests.id, input.requestId), eq(transactionRequests.assigneeId, input.actorUserId), or(isNull(transactionRequests.quoteSelectedAt), isNotNull(transactionRequests.providerAcceptedAt)))).limit(1).for("update"))[0];
     if (!before) return null;
+    if (before.status === "completed") throw new TRPCError({ code: "CONFLICT", message: "أُغلقت المراسلة والتحديثات بعد اكتمال الطلب. السجل للقراءة فقط." });
     if (input.status) await tx.update(transactionRequests).set({ status: input.status }).where(eq(transactionRequests.id, input.requestId));
     const result = await tx.insert(requestUpdates).values({ requestId: input.requestId, message: input.message, status: input.status ?? null, senderType: input.actorRole, senderUserId: input.actorUserId, senderName: input.actorName });
     const updateId = Number(result[0].insertId);
@@ -855,8 +857,9 @@ export async function createCustomerRequestComment(input: { phone: string; reque
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db.transaction(async (tx) => {
-    const request = (await tx.select().from(transactionRequests).where(and(eq(transactionRequests.id, input.requestId), eq(transactionRequests.phone, input.phone), isNotNull(transactionRequests.assigneeId), isNotNull(transactionRequests.providerAcceptedAt))).limit(1))[0];
+    const request = (await tx.select().from(transactionRequests).where(and(eq(transactionRequests.id, input.requestId), eq(transactionRequests.phone, input.phone), isNotNull(transactionRequests.assigneeId), isNotNull(transactionRequests.providerAcceptedAt))).limit(1).for("update"))[0];
     if (!request?.assigneeId) return null;
+    if (request.status === "completed") throw new TRPCError({ code: "CONFLICT", message: "أُغلقت المراسلة والتحديثات بعد اكتمال الطلب. السجل للقراءة فقط." });
     const result = await tx.insert(requestUpdates).values({ requestId: input.requestId, message: input.message, status: null, senderType: "customer", senderUserId: null, senderName: request.requesterName });
     const updateId = Number(result[0].insertId);
     await tx.insert(teamNotifications).values({ recipientUserId: request.assigneeId, requestId: request.id, type: "customer_comment", title: "رسالة جديدة من العميل", message: input.message.slice(0, 500) });
@@ -871,8 +874,9 @@ export async function createCustomerConversationAttachment(input: { phone: strin
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db.transaction(async (tx) => {
-    const request = (await tx.select().from(transactionRequests).where(and(eq(transactionRequests.id, input.requestId), eq(transactionRequests.phone, input.phone), isNotNull(transactionRequests.assigneeId), isNotNull(transactionRequests.providerAcceptedAt))).limit(1))[0];
+    const request = (await tx.select().from(transactionRequests).where(and(eq(transactionRequests.id, input.requestId), eq(transactionRequests.phone, input.phone), isNotNull(transactionRequests.assigneeId), isNotNull(transactionRequests.providerAcceptedAt))).limit(1).for("update"))[0];
     if (!request?.assigneeId) return null;
+    if (request.status === "completed") throw new TRPCError({ code: "CONFLICT", message: "أُغلقت المراسلة والتحديثات بعد اكتمال الطلب. السجل للقراءة فقط." });
     const message = input.message?.trim() || `أرفق العميل ملفًا: ${input.attachment.fileName}`;
     const result = await tx.insert(requestUpdates).values({ requestId: input.requestId, message, status: null, senderType: "customer", senderUserId: null, senderName: request.requesterName });
     const updateId = Number(result[0].insertId);
@@ -887,8 +891,9 @@ export async function createTeamConversationAttachment(input: { requestId: numbe
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db.transaction(async (tx) => {
-    const request = (await tx.select().from(transactionRequests).where(and(eq(transactionRequests.id, input.requestId), eq(transactionRequests.assigneeId, input.actorUserId), isNotNull(transactionRequests.providerAcceptedAt))).limit(1))[0];
+    const request = (await tx.select().from(transactionRequests).where(and(eq(transactionRequests.id, input.requestId), eq(transactionRequests.assigneeId, input.actorUserId), isNotNull(transactionRequests.providerAcceptedAt))).limit(1).for("update"))[0];
     if (!request) return null;
+    if (request.status === "completed") throw new TRPCError({ code: "CONFLICT", message: "أُغلقت المراسلة والتحديثات بعد اكتمال الطلب. السجل للقراءة فقط." });
     const message = input.message?.trim() || `أرفق مقدم الخدمة ملفًا: ${input.attachment.fileName}`;
     const result = await tx.insert(requestUpdates).values({ requestId: input.requestId, message, status: null, senderType: input.actorRole, senderUserId: input.actorUserId, senderName: input.actorName });
     const updateId = Number(result[0].insertId);

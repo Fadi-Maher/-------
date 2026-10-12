@@ -554,8 +554,8 @@ describe("النصوص العامة لمعاملاتي", () => {
 
   it("يحوّل الطلبات الجديدة والموكلة إلى أيقونات منبثقة مدمجة", () => {
     expect(teamWorkspace).toContain("HubTrigger");
-    expect(teamWorkspace).toContain('title="طلبات العملاء الجديدة"');
-    expect(teamWorkspace).toContain('title="طلباتك الموكلة"');
+    expect(teamWorkspace).toContain('"New customer requests" : "طلبات العملاء الجديدة"');
+    expect(teamWorkspace).toContain('"Active assignments" : "طلباتك الموكلة"');
     expect(teamWorkspace).toContain("PopoverContent");
     expect(teamWorkspace).toContain("openRequestPage");
     expect(teamWorkspace).toContain("كل طلب يفتح في صفحة مستقلة");

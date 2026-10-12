@@ -76,6 +76,7 @@ import { adminProcedure, agentProcedure, employeeProcedure, protectedProcedure, 
 import { PUSH_PUBLIC_KEY } from "./pushPublic";
 import { storagePut } from "./storage";
 import { answerPublicAssistant, redactAssistantMessage } from "./publicAssistant";
+import { listTeamPrivateMessages } from "./teamMessages";
 
 const requestStatuses = ["received", "in_review", "in_progress", "completed"] as const;
 const requestPriorities = ["low", "normal", "high", "urgent"] as const;
@@ -699,6 +700,11 @@ export const appRouter = router({
     }),
   }),
   conversation: router({
+    teamInbox: teamProcedure.query(async ({ ctx }) => {
+      const staff = await getActiveStaffAccountForUser(ctx.user.id);
+      if (!staff?.permissions.canViewAssigned) throw new TRPCError({ code: "FORBIDDEN", message: "لا تملك صلاحية عرض رسائل الطلبات الموكلة." });
+      return listTeamPrivateMessages(ctx.user.id);
+    }),
     customerList: publicProcedure.input(z.object({ accessToken: z.string().min(20).max(300), requestId: z.number().int().positive() })).query(async ({ input }) => {
       const updates = await listCustomerRequestConversation(verifyPhoneAccessToken(input.accessToken), input.requestId);
       if (!updates) throw new TRPCError({ code: "FORBIDDEN", message: "تُفتح المحادثة بعد اعتماد مقدم الخدمة فقط." });
@@ -712,6 +718,8 @@ export const appRouter = router({
     customerUpload: publicProcedure.input(conversationAttachmentInput.extend({ accessToken: z.string().min(20).max(300) })).mutation(async ({ input }) => {
       const phone = verifyPhoneAccessToken(input.accessToken);
       if (!(await listCustomerRequestConversation(phone, input.requestId))) throw new TRPCError({ code: "FORBIDDEN", message: "لا يمكن إرفاق ملف إلا داخل طلب معتمد يخص رقم جوالك." });
+      const request = await getTransactionRequestById(input.requestId);
+      if (request?.status === "completed") throw new TRPCError({ code: "CONFLICT", message: "أُغلقت المراسلة بعد اكتمال الطلب." });
       const attachment = await storeConversationAttachment(input);
       const result = await createCustomerConversationAttachment({ phone, requestId: input.requestId, message: input.message, attachment });
       if (!result) throw new TRPCError({ code: "FORBIDDEN", message: "تعذر ربط المرفق بهذا الطلب." });
@@ -734,6 +742,7 @@ export const appRouter = router({
       if (!staff?.permissions.canAddCustomerUpdate) throw new TRPCError({ code: "FORBIDDEN", message: "لا تملك صلاحية إرسال مرفقات للعميل." });
       const request = await getTransactionRequestById(input.requestId);
       if (!request || request.assigneeId !== ctx.user.id || !request.providerAcceptedAt) throw new TRPCError({ code: "FORBIDDEN", message: "لا يمكن إرفاق ملف لطلب غير معتمد لك." });
+      if (request.status === "completed") throw new TRPCError({ code: "CONFLICT", message: "أُغلقت المراسلة بعد اكتمال الطلب." });
       const attachment = await storeConversationAttachment(input);
       const actorRole = ctx.user.role === "agent" ? "agent" : "employee";
       const result = await createTeamConversationAttachment({ requestId: input.requestId, actorUserId: ctx.user.id, actorRole, actorName: ctx.user.name, message: input.message, attachment });
