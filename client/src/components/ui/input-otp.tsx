@@ -3,15 +3,10 @@ import { OTPInput, OTPInputContext } from "input-otp";
 import { MinusIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { normalizeOtp } from "@shared/phone";
 
 function InputOTP({
   className,
   containerClassName,
-  onChange,
-  pasteTransformer = normalizeOtp,
-  pattern = "^[0-9٠-٩۰-۹]*$",
-  dir = "ltr",
   ...props
 }: React.ComponentProps<typeof OTPInput> & {
   containerClassName?: string;
@@ -25,10 +20,6 @@ function InputOTP({
       )}
       className={cn("disabled:cursor-not-allowed", className)}
       {...props}
-      dir={dir}
-      pattern={pattern}
-      pasteTransformer={pasteTransformer}
-      onChange={value => onChange?.(normalizeOtp(value))}
     />
   );
 }
@@ -36,10 +27,9 @@ function InputOTP({
 function InputOTPGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
-      {...props}
       data-slot="input-otp-group"
-      dir="ltr"
       className={cn("flex items-center", className)}
+      {...props}
     />
   );
 }

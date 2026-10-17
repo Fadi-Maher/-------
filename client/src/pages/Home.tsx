@@ -27,9 +27,8 @@ import {
   Send,
   Sparkles,
 } from "lucide-react";
-import { type ElementType, type FormEvent, useEffect, useRef, useState } from "react";
+import { type ElementType, type FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { normalizeSaudiPhone } from "@shared/phone";
 
 const serviceSubcategories = ["خدمات إدارية وتشغيلية", "وثائق ومستندات أعمال", "تأسيس وتطوير الأعمال", "تنسيق مواعيد ومتابعات", "استشارة أو طلب مخصص"];
 type ServiceRoute = { title: string; description: string; icon: ElementType; tone: string; action?: string; href?: string };
@@ -87,6 +86,15 @@ const demoOtp = "123456";
 const demoOtpSeconds = 5 * 60;
 const demoOtpMaxAttempts = 5;
 
+function normalizeSaudiPhone(value: string) {
+  const compact = value.replace(/[\s-]/g, "");
+  if (/^05\d{8}$/.test(compact)) return compact;
+  if (/^5\d{8}$/.test(compact)) return `0${compact}`;
+  if (/^\+9665\d{8}$/.test(compact)) return `0${compact.slice(4)}`;
+  if (/^009665\d{8}$/.test(compact)) return `0${compact.slice(5)}`;
+  return null;
+}
+
 function useCustomerSession() {
   const [session, setSession] = useState<{ name: string; phone: string; accessToken: string } | null>(null);
   useEffect(() => {
@@ -129,17 +137,13 @@ function useLocalizedRequestValidation(isEnglish: boolean) {
   }, [isEnglish]);
 }
 
-export function DemoRequestOtp({ isEnglish, onVerified }: { isEnglish: boolean; onVerified: () => Promise<boolean> }) {
+function DemoRequestOtp({ isEnglish, onVerified }: { isEnglish: boolean; onVerified: () => Promise<boolean> }) {
   const [code, setCode] = useState("");
   const [attempts, setAttempts] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(demoOtpSeconds);
   const [error, setError] = useState(false);
   const [verified, setVerified] = useState(false);
-  const [submissionError, setSubmissionError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const submittingRef = useRef(false);
-  const codeBlocked = secondsLeft === 0 || attempts >= demoOtpMaxAttempts;
-  const blocked = verified || isSubmitting || codeBlocked;
+  const blocked = verified || secondsLeft === 0 || attempts >= demoOtpMaxAttempts;
   const minutes = Math.floor(secondsLeft / 60).toString().padStart(2, "0");
   const seconds = (secondsLeft % 60).toString().padStart(2, "0");
 
@@ -150,42 +154,32 @@ export function DemoRequestOtp({ isEnglish, onVerified }: { isEnglish: boolean; 
   }, [verified, secondsLeft]);
 
   const verify = async () => {
-    if (blocked || submittingRef.current) return;
-    setError(false);
-    setSubmissionError("");
-    if (code !== demoOtp) {
-      setAttempts((value) => value + 1);
-      setError(true);
-      return;
-    }
-    submittingRef.current = true;
-    setIsSubmitting(true);
-    try {
+    if (blocked) return;
+    setAttempts((value) => value + 1);
+    if (code === demoOtp) {
       const approved = await onVerified();
       if (approved) {
+        setError(false);
         setVerified(true);
       } else {
-        setSubmissionError(isEnglish ? "The code is correct, but the request could not be saved. Try approving again." : "الرمز صحيح، لكن تعذر حفظ الطلب. حاول اعتماده مرة أخرى.");
+        setError(true);
+        window.setTimeout(() => setError(false), 500);
       }
-    } catch {
-      setSubmissionError(isEnglish ? "The code is correct, but the request could not be saved. Check your connection and request details, then try again." : "الرمز صحيح، لكن تعذر حفظ الطلب. تحقق من الاتصال وبيانات الطلب ثم حاول مرة أخرى.");
-    } finally {
-      submittingRef.current = false;
-      setIsSubmitting(false);
+      return;
     }
+    setError(true);
+    window.setTimeout(() => setError(false), 500);
   };
 
   const resend = () => {
-    if (submittingRef.current) return;
     setCode("");
     setAttempts(0);
     setSecondsLeft(demoOtpSeconds);
     setError(false);
-    setSubmissionError("");
     setVerified(false);
   };
 
-  return <div className="mt-5 rounded-2xl border border-[#b7dbff] bg-[#f7fbff] p-4 sm:p-5" dir={isEnglish ? "ltr" : "rtl"}><div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#25d366] text-lg font-black text-white">W</span><div><p className="text-xs font-extrabold uppercase tracking-[.12em] text-[#0878f9]">WhatsApp demo</p><p className="mt-1 text-sm font-extrabold text-[#17334f]">{isEnglish ? "Verify your phone before approving the request" : "تحقق من جوالك قبل اعتماد الطلب"}</p></div></div><div className="mt-4 rounded-xl bg-[#effff5] p-3"><p className="text-xs leading-6 text-[#405d78]">{isEnglish ? "Your demo verification code is:" : "رمز التحقق التجريبي هو:"}</p><p className="mt-1 text-2xl font-black tracking-[.35em] text-[#102a43]" dir="ltr">{demoOtp}</p><p className="mt-1 text-xs text-[#60778f]">{isEnglish ? `Expires in ${minutes}:${seconds} · ${demoOtpMaxAttempts - attempts} attempts left` : `ينتهي خلال ${minutes}:${seconds} · تبقت ${demoOtpMaxAttempts - attempts} محاولات`}</p></div><div className="mt-4 flex flex-col gap-3"><InputOTP maxLength={6} value={code} onChange={(value) => { setCode(value); setError(false); setSubmissionError(""); }} disabled={blocked} aria-label={isEnglish ? "Enter the six-digit demo verification code" : "أدخل رمز التحقق التجريبي المكون من ست خانات"} containerClassName={`justify-start ${error ? "otp-shake" : ""}`} className="gap-2" dir="ltr"><InputOTPGroup>{[0, 1, 2, 3, 4, 5].map((index) => <InputOTPSlot key={index} index={index} className="h-11 w-10 rounded-xl border-[#b7dbff] bg-white text-lg font-black text-[#102a43] first:border-l last:border-r data-[active=true]:border-[#0878f9] data-[active=true]:ring-[#0878f9]/20 sm:h-12 sm:w-11" />)}</InputOTPGroup></InputOTP><div className="flex flex-wrap gap-2"><Button type="button" onClick={() => { void verify(); }} disabled={blocked || code.length !== 6} className="h-10 rounded-xl bg-[#0878f9] px-4 text-xs font-extrabold text-white hover:bg-[#0668d9] disabled:opacity-60">{isSubmitting ? (isEnglish ? "Saving request…" : "جارٍ حفظ الطلب…") : (isEnglish ? "Approve after verification" : "اعتماد الطلب بعد التحقق")}</Button><Button type="button" variant="outline" onClick={resend} disabled={isSubmitting || verified} className="h-10 rounded-xl border-[#b7dbff] bg-white px-4 text-xs font-bold text-[#0878f9]">{isEnglish ? "Resend demo code" : "إعادة إرسال الرمز التجريبي"}</Button></div></div>{verified && <p className="otp-success-pop mt-3 flex items-center gap-2 rounded-xl bg-[#effff5] px-3 py-3 text-xs font-bold leading-6 text-[#17824b]"><CheckCircle2 className="h-4 w-4 shrink-0" />{isEnglish ? "Verified. Your request is being approved and added to the customer list." : "تم التحقق. جارٍ اعتماد طلبك وإضافتك إلى قائمة العملاء."}</p>}{!verified && error && <p role="alert" className="mt-3 rounded-xl bg-[#fff1f3] px-3 py-2 text-xs font-bold leading-6 text-[#a9323f]">{isEnglish ? "The code is incorrect. Enter all six digits from the demo message." : "الرمز غير صحيح. أدخل الخانات الست الظاهرة في الرسالة التجريبية."}</p>}{!verified && submissionError && <p role="alert" className="mt-3 rounded-xl bg-[#fff1f3] px-3 py-2 text-xs font-bold leading-6 text-[#a9323f]">{submissionError}</p>}{!verified && codeBlocked && <p className="mt-3 text-xs font-bold leading-6 text-[#a35a00]">{secondsLeft === 0 ? (isEnglish ? "The demo code expired. Resend it to continue." : "انتهت صلاحية الرمز التجريبي. أعد إرساله للمتابعة.") : (isEnglish ? "Attempts are exhausted. Resend the demo code to continue." : "استُنفدت المحاولات. أعد إرسال الرمز التجريبي للمتابعة.")}</p>}<p className="mt-3 text-xs leading-5 text-[#a35a00]">{isEnglish ? "Demo only — no real WhatsApp message was sent." : "للاختبار فقط — لم تُرسل أي رسالة واتساب حقيقية."}</p></div>;
+  return <div className="mt-5 rounded-2xl border border-[#b7dbff] bg-[#f7fbff] p-4 sm:p-5" dir="rtl"><div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#25d366] text-lg font-black text-white">W</span><div><p className="text-xs font-extrabold uppercase tracking-[.12em] text-[#0878f9]">WhatsApp demo</p><p className="mt-1 text-sm font-extrabold text-[#17334f]">{isEnglish ? "Verify your phone before approving the request" : "تحقق من جوالك قبل اعتماد الطلب"}</p></div></div><div className="mt-4 rounded-xl bg-[#effff5] p-3"><p className="text-xs leading-6 text-[#405d78]">{isEnglish ? "Your demo verification code is:" : "رمز التحقق التجريبي هو:"}</p><p className="mt-1 text-2xl font-black tracking-[.35em] text-[#102a43]" dir="ltr">{demoOtp}</p><p className="mt-1 text-xs text-[#60778f]">{isEnglish ? `Expires in ${minutes}:${seconds} · ${demoOtpMaxAttempts - attempts} attempts left` : `ينتهي خلال ${minutes}:${seconds} · تبقت ${demoOtpMaxAttempts - attempts} محاولات`}</p></div><div className="mt-4 flex flex-col gap-3"><InputOTP maxLength={6} value={code} onChange={(value) => setCode(value.replace(/\D/g, "").slice(0, 6))} disabled={blocked} aria-label={isEnglish ? "Enter the six-digit demo verification code" : "أدخل رمز التحقق التجريبي المكون من ست خانات"} containerClassName={`justify-start ${error ? "otp-shake" : ""}`} className="gap-2" dir="ltr"><InputOTPGroup>{[0, 1, 2, 3, 4, 5].map((index) => <InputOTPSlot key={index} index={index} className="h-11 w-10 rounded-xl border-[#b7dbff] bg-white text-lg font-black text-[#102a43] first:border-l last:border-r data-[active=true]:border-[#0878f9] data-[active=true]:ring-[#0878f9]/20 sm:h-12 sm:w-11" />)}</InputOTPGroup></InputOTP><div className="flex flex-wrap gap-2"><Button type="button" onClick={() => { void verify(); }} disabled={blocked || code.length !== 6} className="h-10 rounded-xl bg-[#0878f9] px-4 text-xs font-extrabold text-white hover:bg-[#0668d9] disabled:opacity-60">{isEnglish ? "Approve after verification" : "اعتماد الطلب بعد التحقق"}</Button><Button type="button" variant="outline" onClick={resend} className="h-10 rounded-xl border-[#b7dbff] bg-white px-4 text-xs font-bold text-[#0878f9]">{isEnglish ? "Resend demo code" : "إعادة إرسال الرمز التجريبي"}</Button></div></div>{verified && <p className="otp-success-pop mt-3 flex items-center gap-2 rounded-xl bg-[#effff5] px-3 py-3 text-xs font-bold leading-6 text-[#17824b]"><CheckCircle2 className="h-4 w-4 shrink-0" />{isEnglish ? "Verified. Your request is being approved and added to the customer list." : "تم التحقق. جارٍ اعتماد طلبك وإضافتك إلى قائمة العملاء."}</p>}{!verified && error && <p role="alert" className="mt-3 rounded-xl bg-[#fff1f3] px-3 py-2 text-xs font-bold leading-6 text-[#a9323f]">{isEnglish ? "The code is incorrect. Enter all six digits from the demo message." : "الرمز غير صحيح. أدخل الخانات الست الظاهرة في الرسالة التجريبية."}</p>}{!verified && blocked && <p className="mt-3 text-xs font-bold leading-6 text-[#a35a00]">{secondsLeft === 0 ? (isEnglish ? "The demo code expired. Resend it to continue." : "انتهت صلاحية الرمز التجريبي. أعد إرساله للمتابعة.") : (isEnglish ? "Attempts are exhausted. Resend the demo code to continue." : "استُنفدت المحاولات. أعد إرسال الرمز التجريبي للمتابعة.")}</p>}<p className="mt-3 text-xs leading-5 text-[#a35a00]">{isEnglish ? "Demo only — no real WhatsApp message was sent." : "للاختبار فقط — لم تُرسل أي رسالة واتساب حقيقية."}</p></div>;
 }
 
 function CustomRequestFields({ fields, values, onChange }: { fields: ConfiguredField[]; values: Record<string, string>; onChange: (fieldKey: string, value: string) => void }) {
@@ -263,8 +257,6 @@ function HomeEnglish() {
     const category = form.get("category") === "service" ? "طلب خدمة" : "تعقّب المعاملات";
     const subcategory = String(form.get("subcategory") || "") || undefined;
     const details = String(form.get("details") || "");
-    if (details.trim().length < 10) { toast.error("Enter at least 10 characters in the request summary."); return; }
-    if (!customerSession && String(form.get("name") || "").trim().length < 2) { toast.error("Enter your full name (at least 2 characters)."); return; }
     if (customerSession) {
       try {
         await submitCustomerRequest.mutateAsync({ accessToken: customerSession.accessToken, category, subcategory, details });
@@ -380,8 +372,6 @@ function HomeArabic() {
     const category = form.get("category") === "طلب خدمة" ? "طلب خدمة" : "تعقّب المعاملات";
     const subcategory = String(form.get("subcategory") || "") || undefined;
     const details = String(form.get("details") || "");
-    if (details.trim().length < 10) { toast.error("اكتب ملخصًا للطلب من 10 أحرف على الأقل."); return; }
-    if (!customerSession && String(form.get("name") || "").trim().length < 2) { toast.error("أدخل الاسم الكامل من حرفين على الأقل."); return; }
     if (customerSession) {
       try {
         await submitCustomerRequest.mutateAsync({ accessToken: customerSession.accessToken, category, subcategory, details });
