@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import { amountToHalalas, halalasToAmount, normalizeMoneyInput, summarizeFinanceEntries } from "@shared/finance";
+import { filterFinanceEntries, type FinancePeriod } from "@shared/financePeriod";
+import { FinancePeriodFilter } from "./FinancePeriodFilter";
 import { ArrowDown, ArrowUp, ChevronDown, CircleDollarSign, FileClock, Loader2, Plus, RefreshCw, RotateCcw, WalletCards } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -89,6 +91,7 @@ function SummaryMetric({ label, amount, tone = "blue" }: { label: string; amount
 
 export function AgentFinancePanel({ isEnglish, requestId }: AgentFinancePanelProps) {
   const [ledgerOpen, setLedgerOpen] = useState(false);
+  const [period, setPeriod] = useState<FinancePeriod>(() => ({ mode: "all", startMs: null, endExclusiveMs: null, month: "", from: "", to: "" }));
   const [selectedRequestId, setSelectedRequestId] = useState(requestId ? String(requestId) : "");
   const [kind, setKind] = useState<EntryKind>("collection");
   const [amount, setAmount] = useState("");
@@ -120,18 +123,19 @@ export function AgentFinancePanel({ isEnglish, requestId }: AgentFinancePanelPro
   }, [availableRequests, requestId, selectedRequestId]);
 
   const selectedId = Number(selectedRequestId);
-  const scopedEntries = useMemo(() => ((data?.entries ?? []) as FinanceEntry[]).filter(entry => !requestId || entry.requestId === requestId).sort((first, second) => second.occurredAt - first.occurredAt || second.createdAt - first.createdAt), [data?.entries, requestId]);
+  const requestEntries = useMemo(() => ((data?.entries ?? []) as FinanceEntry[]).filter(entry => !requestId || entry.requestId === requestId).sort((first, second) => second.occurredAt - first.occurredAt || second.createdAt - first.createdAt), [data?.entries, requestId]);
+  const scopedEntries = useMemo(() => filterFinanceEntries(requestEntries, period), [requestEntries, period]);
   const scopedRequest = requestId ? availableRequests[0] : availableRequests.find(request => request.requestId === selectedId);
-  const scopedSummary = requestId ? summarizeFinanceEntries(scopedEntries) : data ? { totalCollected: data.totalCollected, totalCosts: data.totalCosts, netProfit: data.netProfit } : null;
+  const scopedSummary = data ? summarizeFinanceEntries(scopedEntries) : null;
   const canAdd = Boolean(data && !query.isError && scopedRequest && Number.isInteger(selectedId) && !addEntry.isPending && !isSaving);
 
   const text = isEnglish
     ? {
         title: requestId ? "Request cash ledger" : "My cash ledger",
         subtitle: "Cash-basis operational record from the agent's own entries; it has not been audited and is not a payment channel.",
-        collected: "Collected",
-        costs: "Costs",
-        net: "Net profit by entries",
+        collected: period.mode === "all" ? "Collected" : "Collected in period",
+        costs: period.mode === "all" ? "Costs" : "Costs in period",
+        net: period.mode === "all" ? "Net profit by entries" : "Net profit in period",
         estimate: "Quoted values are estimates only and are not collected automatically.",
         open: "Open ledger",
         close: "Close ledger",
@@ -152,7 +156,7 @@ export function AgentFinancePanel({ isEnglish, requestId }: AgentFinancePanelPro
         requestEstimate: "Quoted value · estimate only",
         noQuote: "No quoted value",
         history: "Entries",
-        noEntries: "No entries recorded yet.",
+        noEntries: period.mode === "all" ? "No entries recorded yet." : "No entries in this period.",
         void: "Void entry",
         voided: "Voided",
         voidReason: "Void reason",
@@ -181,9 +185,9 @@ export function AgentFinancePanel({ isEnglish, requestId }: AgentFinancePanelPro
     : {
         title: requestId ? "سجل القيود للطلب" : "سجل قيودي النقدي",
         subtitle: "سجل نقدي تشغيلي مبني على ما سجله المعقب ولم يُدقق؛ ليس قناة دفع.",
-        collected: "المحصّل",
-        costs: "التكاليف",
-        net: "صافي الربح حسب القيود",
+        collected: period.mode === "all" ? "المحصّل" : "المحصّل في الفترة",
+        costs: period.mode === "all" ? "التكاليف" : "التكاليف في الفترة",
+        net: period.mode === "all" ? "صافي الربح حسب القيود" : "صافي الربح في الفترة",
         estimate: "قيم العروض تقديرات وليست تحصيلًا تلقائيًا.",
         open: "فتح السجل",
         close: "إغلاق السجل",
@@ -204,7 +208,7 @@ export function AgentFinancePanel({ isEnglish, requestId }: AgentFinancePanelPro
         requestEstimate: "قيمة العرض · تقدير فقط",
         noQuote: "لا توجد قيمة عرض",
         history: "القيود",
-        noEntries: "لا توجد قيود مسجلة بعد.",
+        noEntries: period.mode === "all" ? "لا توجد قيود مسجلة بعد." : "لا توجد قيود ضمن هذه الفترة.",
         void: "تعطيل القيد",
         voided: "معطّل",
         voidReason: "سبب التعطيل",
@@ -287,6 +291,7 @@ export function AgentFinancePanel({ isEnglish, requestId }: AgentFinancePanelPro
     <section className="mt-5 rounded-2xl border border-[#cde3fa] bg-white p-4 shadow-[0_8px_26px_rgba(31,91,151,.05)] sm:p-5" dir={isEnglish ? "ltr" : "rtl"} aria-label={text.title}>
       <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#eaf3ff] text-[#0878f9]"><WalletCards className="h-5 w-5" /></span><div className="min-w-0 flex-1"><h2 className="font-display text-base font-black text-[#17334f]">{text.title}</h2><p className="mt-1 text-xs leading-5 text-[#60778f]">{text.subtitle}</p></div></div>
       {query.isLoading ? <div role="status" className="grid min-h-28 place-items-center"><Loader2 className="h-6 w-6 animate-spin text-[#0878f9]" /><span className="sr-only">{text.loading}</span></div> : query.isError || !data ? <div role="alert" className="mt-4 rounded-xl border border-[#f1c6ca] bg-[#fff7f7] p-4 text-sm text-[#9e3540]"><p>{text.loadError}</p><Button type="button" size="sm" variant="outline" onClick={() => void query.refetch()} className="mt-3 border-[#e5b5bb] text-[#9e3540]"><RefreshCw className="me-1 h-3.5 w-3.5" />{text.retry}</Button></div> : <>
+        <FinancePeriodFilter period={period} isEnglish={isEnglish} onApply={setPeriod} />
         {scopedSummary ? <dl className="mt-4 grid gap-2 sm:grid-cols-3"><SummaryMetric label={text.collected} amount={scopedSummary.totalCollected} /><SummaryMetric label={text.costs} amount={scopedSummary.totalCosts} tone="red" /><SummaryMetric label={text.net} amount={scopedSummary.netProfit} tone={netTone} /></dl> : null}
         <p className="mt-3 text-[11px] leading-5 text-[#70859b]">{text.estimate} {text.paymentWarning}</p>
         <Collapsible open={ledgerOpen} onOpenChange={setLedgerOpen}>
