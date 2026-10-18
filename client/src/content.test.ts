@@ -314,7 +314,8 @@ describe("النصوص العامة لمعاملاتي", () => {
   });
 
   it("يوفر مسار تنقل والطلب السابق والتالي داخل صفحة طلب فريق التشغيل", () => {
-    expect(teamRequestDetail).toContain('aria-label="مسار التنقل"');
+    expect(teamRequestDetail).toContain("مسار التنقل");
+    expect(teamRequestDetail).toContain("aria-label=");
     expect(teamRequestDetail).toContain("الطلب السابق");
     expect(teamRequestDetail).toContain("الطلب التالي");
     expect(teamRequestDetail).toContain("previousRequest");
@@ -554,8 +555,12 @@ describe("النصوص العامة لمعاملاتي", () => {
 
   it("يحوّل الطلبات الجديدة والموكلة إلى أيقونات منبثقة مدمجة", () => {
     expect(teamWorkspace).toContain("HubTrigger");
-    expect(teamWorkspace).toContain('title="طلبات العملاء الجديدة"');
-    expect(teamWorkspace).toContain('title="طلباتك الموكلة"');
+    expect(teamWorkspace).toContain("title={language.newRequests}");
+    expect(teamWorkspace).toContain("طلبات العملاء الجديدة");
+    expect(teamWorkspace).toContain("title={language.active}");
+    expect(teamWorkspace).toContain('request.status !== "completed"');
+    expect(teamWorkspace).toContain('request.status === "completed"');
+    expect(teamWorkspace).toContain("CompletedAgentRequests");
     expect(teamWorkspace).toContain("PopoverContent");
     expect(teamWorkspace).toContain("openRequestPage");
     expect(teamWorkspace).toContain("كل طلب يفتح في صفحة مستقلة");

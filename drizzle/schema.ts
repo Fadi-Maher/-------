@@ -1,4 +1,4 @@
-import { boolean, decimal, foreignKey, index, int, mysqlEnum, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { bigint, boolean, decimal, foreignKey, index, int, mysqlEnum, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -115,6 +115,26 @@ export const requestQuotes = mysqlTable("request_quotes", {
 
 export type RequestQuote = typeof requestQuotes.$inferSelect;
 export type InsertRequestQuote = typeof requestQuotes.$inferInsert;
+
+export const agentFinanceEntries = mysqlTable("agent_finance_entries", {
+  id: int("id").autoincrement().primaryKey(),
+  agentUserId: int("agentUserId").notNull().references(() => users.id, { onDelete: "restrict" }),
+  requestId: int("requestId").notNull().references(() => transactionRequests.id, { onDelete: "restrict" }),
+  kind: mysqlEnum("kind", ["collection", "cost"]).notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  occurredAt: bigint("occurredAt", { mode: "number" }).notNull(),
+  createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  clientKey: varchar("clientKey", { length: 36 }).notNull(),
+  note: varchar("note", { length: 500 }),
+  voidedAt: bigint("voidedAt", { mode: "number" }),
+  voidReason: varchar("voidReason", { length: 500 }),
+}, table => ({
+  agentClientUnique: uniqueIndex("agent_finance_client_unique").on(table.agentUserId, table.clientKey),
+  agentCreatedIndex: index("agent_finance_created_idx").on(table.agentUserId, table.createdAt),
+  agentRequestIndex: index("agent_finance_request_idx").on(table.agentUserId, table.requestId),
+}));
+
+export type AgentFinanceEntry = typeof agentFinanceEntries.$inferSelect;
 
 export const auditLogs = mysqlTable("audit_logs", {
   id: int("id").autoincrement().primaryKey(),

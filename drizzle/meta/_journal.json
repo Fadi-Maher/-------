@@ -134,6 +134,13 @@
       "when": 1788092580590,
       "tag": "0018_furry_scrambler",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1792337029509,
+      "tag": "0019_famous_scarecrow",
+      "breakpoints": true
     }
   ]
 }

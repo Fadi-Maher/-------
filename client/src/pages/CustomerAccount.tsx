@@ -386,6 +386,7 @@ export default function CustomerAccount() {
                       requestId={request.id}
                       isEnglish={isEnglish}
                       mode="customer"
+                      status={request.status}
                       accessToken={accessToken}
                     />
                   ) : null}

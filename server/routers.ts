@@ -76,6 +76,8 @@ import { adminProcedure, agentProcedure, employeeProcedure, protectedProcedure, 
 import { PUSH_PUBLIC_KEY } from "./pushPublic";
 import { storagePut } from "./storage";
 import { answerPublicAssistant, redactAssistantMessage } from "./publicAssistant";
+import { agentFinanceRouter } from "./agentFinanceRouter";
+import { listTeamPrivateMessages } from "./teamMessages";
 
 const requestStatuses = ["received", "in_review", "in_progress", "completed"] as const;
 const requestPriorities = ["low", "normal", "high", "urgent"] as const;
@@ -270,6 +272,7 @@ async function storeConversationAttachment(input: z.infer<typeof conversationAtt
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
+  agentFinance: agentFinanceRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
@@ -699,6 +702,11 @@ export const appRouter = router({
     }),
   }),
   conversation: router({
+    teamInbox: teamProcedure.query(async ({ ctx }) => {
+      const staff = await getActiveStaffAccountForUser(ctx.user.id);
+      if (!staff?.permissions.canViewAssigned) throw new TRPCError({ code: "FORBIDDEN", message: "لا تملك صلاحية عرض رسائل العملاء." });
+      return listTeamPrivateMessages(ctx.user.id);
+    }),
     customerList: publicProcedure.input(z.object({ accessToken: z.string().min(20).max(300), requestId: z.number().int().positive() })).query(async ({ input }) => {
       const updates = await listCustomerRequestConversation(verifyPhoneAccessToken(input.accessToken), input.requestId);
       if (!updates) throw new TRPCError({ code: "FORBIDDEN", message: "تُفتح المحادثة بعد اعتماد مقدم الخدمة فقط." });
@@ -712,12 +720,16 @@ export const appRouter = router({
     customerUpload: publicProcedure.input(conversationAttachmentInput.extend({ accessToken: z.string().min(20).max(300) })).mutation(async ({ input }) => {
       const phone = verifyPhoneAccessToken(input.accessToken);
       if (!(await listCustomerRequestConversation(phone, input.requestId))) throw new TRPCError({ code: "FORBIDDEN", message: "لا يمكن إرفاق ملف إلا داخل طلب معتمد يخص رقم جوالك." });
+      const request = await getTransactionRequestById(input.requestId);
+      if (request?.status === "completed") throw new TRPCError({ code: "CONFLICT", message: "المراسلة مغلقة للطلب المكتمل." });
       const attachment = await storeConversationAttachment(input);
       const result = await createCustomerConversationAttachment({ phone, requestId: input.requestId, message: input.message, attachment });
       if (!result) throw new TRPCError({ code: "FORBIDDEN", message: "تعذر ربط المرفق بهذا الطلب." });
       return { success: true, updateId: result.updateId, attachment: { fileName: attachment.fileName, url: attachment.fileUrl } } as const;
     }),
     teamList: teamProcedure.input(z.object({ requestId: z.number().int().positive() })).query(async ({ input, ctx }) => {
+      const staff = await getActiveStaffAccountForUser(ctx.user.id);
+      if (!staff?.permissions.canViewAssigned) throw new TRPCError({ code: "FORBIDDEN", message: "لا تملك صلاحية عرض رسائل الطلب." });
       if (!(await isRequestAssignedToUser(input.requestId, ctx.user.id))) throw new TRPCError({ code: "FORBIDDEN", message: "لا يمكنك عرض محادثة طلب غير موكل إليك." });
       return listRequestUpdates(input.requestId);
     }),
@@ -734,6 +746,7 @@ export const appRouter = router({
       if (!staff?.permissions.canAddCustomerUpdate) throw new TRPCError({ code: "FORBIDDEN", message: "لا تملك صلاحية إرسال مرفقات للعميل." });
       const request = await getTransactionRequestById(input.requestId);
       if (!request || request.assigneeId !== ctx.user.id || !request.providerAcceptedAt) throw new TRPCError({ code: "FORBIDDEN", message: "لا يمكن إرفاق ملف لطلب غير معتمد لك." });
+      if (request.status === "completed") throw new TRPCError({ code: "CONFLICT", message: "المراسلة مغلقة للطلب المكتمل." });
       const attachment = await storeConversationAttachment(input);
       const actorRole = ctx.user.role === "agent" ? "agent" : "employee";
       const result = await createTeamConversationAttachment({ requestId: input.requestId, actorUserId: ctx.user.id, actorRole, actorName: ctx.user.name, message: input.message, attachment });
