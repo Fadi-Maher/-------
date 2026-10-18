@@ -125,7 +125,7 @@ export default function AssistantKnowledge() {
           <div>
             <p className="section-kicker">المساعد الذكي</p>
             <h1 className="font-display mt-4 text-3xl font-extrabold tracking-[-0.06em] text-[#102a43] sm:text-4xl">قاعدة الأسئلة والأجوبة</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-[#60778f]">أضف إجابات معتمدة ليستخدمها مساعد معاملاتي عند الرد. لا تضع بيانات عملاء أو أرقام طلبات أو معلومات سرية داخل قاعدة المعرفة.</p>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-[#60778f]">أضف إجابات معتمدة ليستخدمها مساعد معاملاتي كير عند الرد. لا تضع بيانات عملاء أو أرقام طلبات أو معلومات سرية داخل قاعدة المعرفة.</p>
           </div>
           <div className="flex items-center gap-2 rounded-2xl border border-[#cfe3f8] bg-white px-4 py-3 text-sm font-bold text-[#31516e]">
             <Check className="h-5 w-5 text-[#19a961]" />

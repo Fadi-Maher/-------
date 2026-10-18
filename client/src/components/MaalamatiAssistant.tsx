@@ -47,15 +47,15 @@ export function MaalamatiAssistant() {
   const phone = settings.data?.whatsappNumber;
   const copy = isEnglish
     ? {
-        title: "Maalamati smart assistant",
+        title: "Maalamati Care smart assistant",
         status: "Ready to guide you",
         launcher: "Smart assistant",
-        welcome: "Hello, I am the Maalamati assistant. I can guide you through services, tracking, quotes, and your customer account.",
-        placeholder: "Ask about Maalamati...",
+        welcome: "Hello, I am the Maalamati Care assistant. I can guide you through services, tracking, quotes, and your customer account.",
+        placeholder: "Ask about Maalamati Care...",
         prompts: ["How do I track my request?", "How do price quotes work?", "Where can I see my requests?"],
         privacy: "Do not share mobile numbers, IDs, OTPs, or private documents.",
         consentTitle: "Save this conversation?",
-        consentBody: "With your permission, Maalamati will save this chat so you can continue it on this browser. It is not linked automatically to your name or mobile number, and you can stop saving at any time.",
+        consentBody: "With your permission, Maalamati Care will save this chat so you can continue it on this browser. It is not linked automatically to your name or mobile number, and you can stop saving at any time.",
         consentAccept: "I agree to save",
         consentDecline: "Continue without saving",
         consentPending: "Saving your preference…",
@@ -67,19 +67,19 @@ export function MaalamatiAssistant() {
         historyError: "Saved messages could not be restored, but you can continue chatting.",
         whatsapp: "WhatsApp support",
         error: "The assistant is unavailable right now. You can open Contact & Support for help.",
-        open: "Open Maalamati smart assistant",
+        open: "Open Maalamati Care smart assistant",
         close: "Close smart assistant",
       }
     : {
-        title: "المساعد الذكي من معاملاتي",
+        title: "المساعد الذكي من معاملاتي كير",
         status: "جاهز لإرشادك",
         launcher: "المساعد الذكي",
-        welcome: "مرحبًا، أنا مساعد معاملاتي. أستطيع إرشادك في الخدمات والتتبع وعروض الأسعار وحساب العميل.",
-        placeholder: "اسأل عن معاملاتي...",
+        welcome: "مرحبًا، أنا مساعد معاملاتي كير. أستطيع إرشادك في الخدمات والتتبع وعروض الأسعار وحساب العميل.",
+        placeholder: "اسأل عن معاملاتي كير...",
         prompts: ["كيف أتتبّع طلبي؟", "كيف تعمل عروض الأسعار؟", "أين أجد طلباتي؟"],
         privacy: "لا تشارك رقم الجوال أو الهوية أو رمز التحقق أو مستندات خاصة.",
         consentTitle: "هل توافق على حفظ هذه المحادثة؟",
-        consentBody: "بعد موافقتك، تحفظ معاملاتي رسائل هذه المحادثة لتتمكن من متابعتها من هذا المتصفح. لا تُربط تلقائيًا باسمك أو رقم جوالك، ويمكنك إيقاف الحفظ في أي وقت.",
+        consentBody: "بعد موافقتك، تحفظ معاملاتي كير رسائل هذه المحادثة لتتمكن من متابعتها من هذا المتصفح. لا تُربط تلقائيًا باسمك أو رقم جوالك، ويمكنك إيقاف الحفظ في أي وقت.",
         consentAccept: "أوافق على الحفظ",
         consentDecline: "المتابعة دون حفظ",
         consentPending: "جارٍ حفظ اختيارك…",
@@ -91,7 +91,7 @@ export function MaalamatiAssistant() {
         historyError: "تعذر استعادة الرسائل المحفوظة، ويمكنك متابعة المحادثة.",
         whatsapp: "دعم واتساب",
         error: "المساعد غير متاح الآن. يمكنك فتح صفحة «تواصل ودعم» للحصول على المساعدة.",
-        open: "فتح المساعد الذكي من معاملاتي",
+        open: "فتح المساعد الذكي من معاملاتي كير",
         close: "إغلاق المساعد الذكي",
       };
 
@@ -176,7 +176,7 @@ export function MaalamatiAssistant() {
   };
 
   if (!isPublicAssistantPath(location)) return null;
-  const whatsappMessage = encodeURIComponent(isEnglish ? "Hello, I need support with Maalamati." : "مرحبًا، أحتاج دعمًا بخصوص معاملاتي.");
+  const whatsappMessage = encodeURIComponent(isEnglish ? "Hello, I need support with Maalamati Care." : "مرحبًا، أحتاج دعمًا بخصوص معاملاتي كير.");
 
   return (
     <div className="fixed bottom-4 left-4 z-[70] sm:bottom-5 sm:left-5" dir={isEnglish ? "ltr" : "rtl"}>

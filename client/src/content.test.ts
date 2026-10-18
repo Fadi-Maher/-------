@@ -82,10 +82,10 @@ describe("النصوص العامة لمعاملاتي", () => {
   it("يعرض قسم تطبيق معاملاتي عالي الجودة ويربطه بتثبيت PWA الحقيقي دون شعارات متاجر غير متاحة", () => {
     expect(homePage).toContain("<AppShowcaseSection isEnglish />");
     expect(homePage).toContain("<AppShowcaseSection isEnglish={false} />");
-    expect(appShowcase).toContain("معاملتك أسهل مع تطبيق معاملاتي");
-    expect(appShowcase).toContain("Your transaction is easier with the Maalamati app");
+    expect(appShowcase).toContain("معاملتك أسهل مع تطبيق معاملاتي كير");
+    expect(appShowcase).toContain("Your transaction is easier with the Maalamati Care app");
     expect(appShowcase).toContain('id="maalamati-app"');
-    expect(appShowcase).toContain('aria-label={isEnglish ? "Maalamati app preview on a photorealistic modern phone" : "معاينة تطبيق معاملاتي على هاتف حديث واقعي"}');
+    expect(appShowcase).toContain('aria-label={isEnglish ? "Maalamati Care app preview on a photorealistic modern phone" : "معاينة تطبيق معاملاتي كير على هاتف حديث واقعي"}');
     expect(appShowcase).toContain('<PwaInstall variant="showcase" isEnglish={isEnglish} showPush={false} />');
     expect(pwaInstall).toContain('window.addEventListener("beforeinstallprompt"');
     expect(pwaInstall).toContain("await installPrompt.prompt()");
@@ -125,7 +125,7 @@ describe("النصوص العامة لمعاملاتي", () => {
     expect(termsPage).toContain('title: "Terms and Conditions"');
     expect(termsPage).toContain("عروض الأسعار");
     expect(termsPage).toContain("لا تُعد المنصة جهة حكومية");
-    expect(termsPage).toContain("لا تنشئ معاملاتي تقييمات وهمية");
+    expect(termsPage).toContain("لا تنشئ معاملاتي كير تقييمات وهمية");
     expect(termsPage).toContain("لا يُحفظ سجل المحادثة معه إلا بعد موافقة صريحة");
     expect(termsPage).toContain("أنا نظام ذكاء اصطناعي ولست محاميًا");
     expect(termsPage).toContain("I am an AI system, not a lawyer");
@@ -141,7 +141,7 @@ describe("النصوص العامة لمعاملاتي", () => {
     expect(publicFooter).toContain('{ label: "Refund and cancellation", href: "/refund-and-cancellation" }');
     expect(refundPolicy).toContain("سياسة الاسترداد والإلغاء");
     expect(refundPolicy).toContain("Refund and Cancellation Policy");
-    expect(refundPolicy).toContain("لا تعالج معاملاتي المدفوعات الإلكترونية داخل المنصة حاليًا");
+    expect(refundPolicy).toContain("لا تعالج معاملاتي كير المدفوعات الإلكترونية داخل المنصة حاليًا");
     expect(refundPolicy).toContain("لا تحد هذه السياسة من أي حق");
     expect(customerSignup).toContain("CURRENT_TERMS_VERSION");
     expect(customerSignup).toContain("termsAccepted: true");
@@ -605,7 +605,7 @@ describe("النصوص العامة لمعاملاتي", () => {
   });
 
   it("يبقي حقوق النشر باسم الشركة دون وصف إضافي للكيان", () => {
-    expect(publicFooter).toContain("© معاملاتي 2026. جميع الحقوق محفوظة لشركة ستريك إكسبريس.");
+    expect(publicFooter).toContain("© معاملاتي كير 2026. جميع الحقوق محفوظة لشركة ستريك إكسبريس.");
     for (const page of [homePage, aboutPage, contactPage, publicFooter]) {
       expect(page).not.toContain("شركة شخص واحد");
       expect(page).not.toContain("a single-person company");

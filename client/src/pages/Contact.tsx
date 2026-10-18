@@ -49,7 +49,7 @@ export default function Contact() {
           ["Updates and files", "Everything shared on an accepted request stays in its conversation."],
           ["Account access", "Use your verified mobile number to return to your saved customer record."],
         ],
-        message: "Hello, I need support regarding a request in Maalamati.",
+        message: "Hello, I need support regarding a request in Maalamati Care.",
       }
     : {
         kicker: "الدعم والتواصل",
@@ -82,7 +82,7 @@ export default function Contact() {
           ["التحديثات والمرفقات", "كل ما يُشارك بعد اعتماد الطلب يبقى داخل محادثته الخاصة."],
           ["الدخول إلى الحساب", "استخدم رقم جوالك الموثق للعودة إلى سجل العميل المحفوظ."],
         ],
-        message: "مرحبًا، أحتاج دعمًا بخصوص طلب في تطبيق معاملاتي.",
+        message: "مرحبًا، أحتاج دعمًا بخصوص طلب في تطبيق معاملاتي كير.",
       };
 
   const whatsappHref = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(copy.message)}` : "/#request";

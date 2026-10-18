@@ -20,7 +20,7 @@ const footerGroups = {
       ],
     },
     {
-      title: "معاملاتي",
+      title: "معاملاتي كير",
       links: [
         { label: "من نحن", href: "/about" },
         { label: "الشروط والأحكام", href: "/terms-and-conditions" },
@@ -48,7 +48,7 @@ const footerGroups = {
       ],
     },
     {
-      title: "Maalamati",
+      title: "Maalamati Care",
       links: [
         { label: "About us", href: "/about" },
         { label: "Terms and Conditions", href: "/terms-and-conditions" },
@@ -69,12 +69,12 @@ export function PublicFooter() {
       <div className="container py-12 sm:py-14">
         <div className="grid gap-10 lg:grid-cols-[1.2fr_1fr] lg:gap-16">
           <div className="max-w-xl">
-            <a href="/" className="inline-flex items-center gap-3" aria-label={isEnglish ? "Maalamati home" : "معاملاتي، الصفحة الرئيسية"}>
+            <a href="/" className="inline-flex items-center gap-3" aria-label={isEnglish ? "Maalamati Care home" : "معاملاتي كير، الصفحة الرئيسية"}>
               <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#0878f9] text-white shadow-[0_8px_18px_rgba(8,120,249,.20)]">
                 <FileCheck2 className="h-5 w-5" />
               </span>
               <span>
-                <span className="font-display block text-xl font-black tracking-[-.06em]">{isEnglish ? "Maalamati" : "معاملاتي"}</span>
+                <span className="font-display block text-xl font-black tracking-[-.06em]">{isEnglish ? "Maalamati Care" : "معاملاتي كير"}</span>
                 <span className="mt-0.5 block text-[11px] font-bold text-[#70859b]">{isEnglish ? "by Streak Express" : "من ستريك إكسبريس"}</span>
               </span>
             </a>
@@ -102,7 +102,7 @@ export function PublicFooter() {
         </div>
 
         <div className="mt-10 flex flex-col gap-2 border-t border-[#e7eff8] pt-6 text-center text-xs leading-6 text-[#70859b] sm:flex-row sm:items-center sm:justify-between sm:text-start">
-          <p>{isEnglish ? "© Maalamati 2026. All rights reserved by Streak Express." : "© معاملاتي 2026. جميع الحقوق محفوظة لشركة ستريك إكسبريس."}</p>
+          <p>{isEnglish ? "© Maalamati Care 2026. All rights reserved by Streak Express." : "© معاملاتي كير 2026. جميع الحقوق محفوظة لشركة ستريك إكسبريس."}</p>
           <p>{isEnglish ? "Commercial Registration: 7051197981" : "السجل التجاري: 7051197981"}</p>
         </div>
         <div className="mt-6 flex justify-center sm:justify-start">

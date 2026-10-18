@@ -44,7 +44,7 @@ export function PwaInstall({ variant = "footer", isEnglish = false, showPush = t
     const choice = await installPrompt.userChoice;
     if (choice.outcome === "accepted") {
       setInstalled(true);
-      toast.success(isEnglish ? "Maalamati was added to your device." : "تمت إضافة معاملاتي إلى جهازك.");
+      toast.success(isEnglish ? "Maalamati Care was added to your device." : "تمت إضافة معاملاتي كير إلى جهازك.");
     }
     setInstallPrompt(null);
   };

@@ -1,4 +1,4 @@
-const CACHE_NAME = "maalamati-shell-v4";
+const CACHE_NAME = "maalamati-shell-v5";
 const APP_SHELL = ["/", "/offline.html", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
@@ -30,7 +30,7 @@ self.addEventListener("fetch", (event) => {
 });
 
 self.addEventListener("push", (event) => {
-  const payload = event.data?.json?.() ?? { title: "معاملاتي", body: "لديك تحديث جديد." };
+  const payload = event.data?.json?.() ?? { title: "معاملاتي كير", body: "لديك تحديث جديد." };
   event.waitUntil(self.registration.showNotification(payload.title, {
     body: payload.body,
     icon: "/manus-storage/maalamatak-brandmark_6e18d835.png",

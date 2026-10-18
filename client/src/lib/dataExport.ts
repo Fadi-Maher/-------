@@ -77,7 +77,7 @@ export function buildPrintableHtml({
 <body>
   <header><div><h1>${escapeHtml(title)}</h1>${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ""}</div><div class="meta">${new Date().toLocaleString(direction === "rtl" ? "ar-SA" : "en-US")}</div></header>
   <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
-  <footer>معاملاتي — ستريك إكسبريس</footer>
+  <footer>معاملاتي كير — ستريك إكسبريس</footer>
 </body>
 </html>`;
 }

@@ -131,7 +131,7 @@ function DashboardLayoutContent({ children }: DashboardLayoutContentProps) {
               {!isCollapsed ? (
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="font-display truncate text-base font-extrabold tracking-[-0.06em] text-[#102a43]">
-                    إدارة معاملاتي
+                    إدارة معاملاتي كير
                   </span>
                 </div>
               ) : null}

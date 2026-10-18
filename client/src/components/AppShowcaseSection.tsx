@@ -18,18 +18,18 @@ export function AppShowcaseSection({ isEnglish }: { isEnglish: boolean }) {
   }, []);
 
   const copy = isEnglish ? {
-    kicker: "Maalamati on your device",
-    title: "Your transaction is easier with the Maalamati app",
+    kicker: "Maalamati Care on your device",
+    title: "Your transaction is easier with the Maalamati Care app",
     body: "A faster experience with timely notifications. Compare quotes, follow progress, and keep every update and attachment in one organized place.",
-    installLabel: "Install Maalamati now",
+    installLabel: "Install Maalamati Care now",
     note: "A secure web app that installs directly from your browser.",
     quotes: "Compare quotes",
     quoteHint: "Price and completion time",
   } : {
-    kicker: "معاملاتي على جهازك",
-    title: "معاملتك أسهل مع تطبيق معاملاتي",
+    kicker: "معاملاتي كير على جهازك",
+    title: "معاملتك أسهل مع تطبيق معاملاتي كير",
     body: "تجربة استخدام أسرع وإشعارات في وقتها. قارن العروض، تابع الإنجاز، واحتفظ بكل تحديث ومرفق في مكان واحد منظم.",
-    installLabel: "ثبّت تطبيق معاملاتي الآن",
+    installLabel: "ثبّت تطبيق معاملاتي كير الآن",
     note: "تطبيق ويب آمن يُثبّت مباشرة من متصفحك.",
     quotes: "قارن العروض",
     quoteHint: "السعر ومدة الإنجاز",
@@ -57,7 +57,7 @@ export function AppShowcaseSection({ isEnglish }: { isEnglish: boolean }) {
           </div>
         </div>
 
-        <div className="relative mx-auto h-[545px] w-full max-w-[650px] sm:h-[635px]" aria-label={isEnglish ? "Maalamati app preview on a photorealistic modern phone" : "معاينة تطبيق معاملاتي على هاتف حديث واقعي"}>
+        <div className="relative mx-auto h-[545px] w-full max-w-[650px] sm:h-[635px]" aria-label={isEnglish ? "Maalamati Care app preview on a photorealistic modern phone" : "معاينة تطبيق معاملاتي كير على هاتف حديث واقعي"}>
           <div className="absolute left-1/2 top-1/2 h-[86%] w-[72%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,.98)_0%,rgba(153,220,255,.56)_40%,transparent_72%)] blur-2xl" />
           <div className={`absolute -top-5 z-20 h-[554px] w-[443px] transform-gpu sm:-top-8 sm:h-[658px] sm:w-[527px] ${isEnglish ? "right-[-4%] rotate-[0.75deg]" : "left-[-4%] -rotate-[0.75deg]"}`}>
             <span aria-hidden="true" className="absolute bottom-[2%] left-[46%] h-[6%] w-[66%] -translate-x-1/2 rounded-full bg-[#54230f]/25 blur-2xl" />
@@ -85,7 +85,7 @@ export function AppShowcaseSection({ isEnglish }: { isEnglish: boolean }) {
                   loop
                   playsInline
                   preload="metadata"
-                  aria-label={isEnglish ? "Short walkthrough of Maalamati app features" : "عرض قصير لمميزات تطبيق معاملاتي"}
+                  aria-label={isEnglish ? "Short walkthrough of Maalamati Care app features" : "عرض قصير لمميزات تطبيق معاملاتي كير"}
                   onError={() => setVideoUnavailable(true)}
                 />
               ) : (

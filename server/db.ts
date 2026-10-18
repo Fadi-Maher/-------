@@ -134,7 +134,7 @@ export async function getUserByOpenId(openId: string) {
 type CustomerIdentity = Pick<User, "id" | "name" | "email">;
 
 function customerName(user: CustomerIdentity, fallbackName?: string) {
-  return user.name?.trim() || fallbackName?.trim() || "عميل معاملاتي";
+  return user.name?.trim() || fallbackName?.trim() || "عميل معاملاتي كير";
 }
 
 export async function getOrCreateCustomerForUser(user: CustomerIdentity) {
