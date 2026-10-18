@@ -60,7 +60,7 @@ describe("Maalamati Care brand regression", () => {
     }
   });
 
-  it("يبقي رقم الشركة والمعرفات ومفاتيح التخزين ومسارات الأصول الحالية بلا ترحيل", () => {
+  it("يبقي الشركة والمعرفات ومفاتيح التخزين وأصول الهاتف ويحدّث أيقونة الهوية فقط", () => {
     expect(publicFooter).toContain("7051197981");
     expect(terms).toContain("7051197981");
     expect(refundPolicy).toContain("7051197981");
@@ -79,11 +79,13 @@ describe("Maalamati Care brand regression", () => {
       expect(`${customerSession}\n${assistantUi}\n${notificationCenter}`).toContain(key);
     }
 
-    expect(documentHtml).toContain('/manus-storage/maalamatak-brandmark_6e18d835.png');
-    expect(manifest.icons.map(icon => icon.src)).toContain('/manus-storage/maalamatak-brandmark_6e18d835.png');
+    expect(documentHtml).toContain('/manus-storage/maalamati-care-icon-180_03dff29d.png');
+    expect(documentHtml).toContain('/manus-storage/maalamati-care-icon-64_24a83194.png');
+    expect(manifest.icons.map(icon => icon.src)).toContain('/manus-storage/maalamati-care-icon-512_a8c15010.png');
+    expect(manifest.icons.map(icon => icon.src)).toContain('/manus-storage/maalamati-care-icon-192_6fc97013.png');
     for (const worker of [serviceWorker, versionedServiceWorker]) {
-      expect(worker).toContain('const CACHE_NAME = "maalamati-shell-v5"');
-      expect(worker).toContain('/manus-storage/maalamatak-brandmark_6e18d835.png');
+      expect(worker).toContain('const CACHE_NAME = "maalamati-shell-v6"');
+      expect(worker).toContain('/manus-storage/maalamati-care-icon-192_6fc97013.png');
     }
     expect(assistantUi).toContain('/manus-storage/maalamati-assistant-avatar_1d2f6239.png');
     expect(notificationCenter).toContain('/manus-storage/maalamati-quote-alert_818d0073.wav');

@@ -1,5 +1,6 @@
 import { useLanguage } from "@/contexts/LanguageContext";
-import { FileCheck2, HeartHandshake } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
+import { HeartHandshake } from "lucide-react";
 
 const footerGroups = {
   ar: [
@@ -25,6 +26,7 @@ const footerGroups = {
         { label: "من نحن", href: "/about" },
         { label: "الشروط والأحكام", href: "/terms-and-conditions" },
         { label: "الاسترداد والإلغاء", href: "/refund-and-cancellation" },
+        { label: "شاشة الترحيب", href: "/welcome" },
         { label: "الصفحة الرئيسية", href: "/" },
         { label: "بدء طلب جديد", href: "/#request" },
       ],
@@ -53,6 +55,7 @@ const footerGroups = {
         { label: "About us", href: "/about" },
         { label: "Terms and Conditions", href: "/terms-and-conditions" },
         { label: "Refund and cancellation", href: "/refund-and-cancellation" },
+        { label: "Welcome screen", href: "/welcome" },
         { label: "Home", href: "/" },
         { label: "Start a new request", href: "/#request" },
       ],
@@ -70,9 +73,7 @@ export function PublicFooter() {
         <div className="grid gap-10 lg:grid-cols-[1.2fr_1fr] lg:gap-16">
           <div className="max-w-xl">
             <a href="/" className="inline-flex items-center gap-3" aria-label={isEnglish ? "Maalamati Care home" : "معاملاتي كير، الصفحة الرئيسية"}>
-              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#0878f9] text-white shadow-[0_8px_18px_rgba(8,120,249,.20)]">
-                <FileCheck2 className="h-5 w-5" />
-              </span>
+              <BrandMark isEnglish={isEnglish} className="h-11 w-11 rounded-2xl shadow-[0_8px_18px_rgba(8,120,249,.20)]" />
               <span>
                 <span className="font-display block text-xl font-black tracking-[-.06em]">{isEnglish ? "Maalamati Care" : "معاملاتي كير"}</span>
                 <span className="mt-0.5 block text-[11px] font-bold text-[#70859b]">{isEnglish ? "by Streak Express" : "من ستريك إكسبريس"}</span>

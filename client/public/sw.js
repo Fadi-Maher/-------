@@ -1,5 +1,5 @@
-const CACHE_NAME = "maalamati-shell-v5";
-const APP_SHELL = ["/", "/offline.html", "/manifest.webmanifest"];
+const CACHE_NAME = "maalamati-shell-v6";
+const APP_SHELL = ["/", "/offline.html", "/manifest.webmanifest", "/favicon.ico", "/manus-storage/maalamati-care-icon-192_6fc97013.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
@@ -34,8 +34,8 @@ self.addEventListener("push", (event) => {
   const payload = event.data?.json?.() ?? { title: "معاملاتي كير", body: "لديك تحديث جديد." };
   event.waitUntil(self.registration.showNotification(payload.title, {
     body: payload.body,
-    icon: "/manus-storage/maalamatak-brandmark_6e18d835.png",
-    badge: "/manus-storage/maalamatak-brandmark_6e18d835.png",
+    icon: "/manus-storage/maalamati-care-icon-192_6fc97013.png",
+    badge: "/manus-storage/maalamati-care-icon-64_24a83194.png",
     data: { url: payload.url || "/dashboard" },
   }));
 });

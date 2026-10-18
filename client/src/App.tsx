@@ -4,6 +4,7 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { MaalamatiAssistant } from "./components/MaalamatiAssistant";
+import { BrandWelcome, WelcomePage } from "./components/BrandWelcome";
 import Account from "./pages/Account";
 import About from "./pages/About";
 import CustomersDashboard from "./pages/CustomersDashboard";
@@ -34,6 +35,7 @@ function Router() {
   return (
     <Switch>
       <Route path={"/"} component={Home} />
+      <Route path={"/welcome"} component={WelcomePage} />
       <Route path={"/account"} component={Account} />
       <Route path={"/about"} component={About} />
       <Route path={"/contact"} component={Contact} />
@@ -81,6 +83,7 @@ function App() {
             <Toaster />
             <Router />
             <MaalamatiAssistant />
+            <BrandWelcome />
           </TooltipProvider>
         </ThemeProvider>
       </LanguageProvider>
