@@ -42,6 +42,8 @@ const mocks = vi.hoisted(() => ({
   success: vi.fn(),
   profileGet: vi.fn(),
   profileSave: vi.fn(),
+  accounts: vi.fn(),
+  info: vi.fn(),
   currentPhone: "0500000098",
 }));
 vi.mock("@/_core/hooks/useAuth", () => ({
@@ -64,7 +66,7 @@ vi.mock("./contexts/LanguageContext", () => ({
 }));
 vi.mock("wouter", () => ({ useLocation: () => ["/", mocks.navigate] }));
 vi.mock("sonner", () => ({
-  toast: { success: mocks.success, error: vi.fn(), info: vi.fn() },
+  toast: { success: mocks.success, error: vi.fn(), info: mocks.info },
 }));
 vi.mock("./lib/trpc", () => ({
   trpc: {
@@ -84,7 +86,10 @@ vi.mock("./lib/trpc", () => ({
           invalidate: vi.fn().mockResolvedValue(undefined),
         },
       },
-      phoneProfile: { get: { fetch: mocks.profileGet } },
+      phoneProfile: {
+        get: { fetch: mocks.profileGet },
+        accounts: { fetch: mocks.accounts },
+      },
     }),
   },
 }));
@@ -165,6 +170,29 @@ async function openToRole(user: ReturnType<typeof userEvent.setup>) {
   await within(dialog).findByRole("button", { name: /^Customer/ });
   return dialog;
 }
+async function verifyOtp(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(authRows()[0].getByRole("button", { name: "Sign in" }));
+  const dialog = await screen.findByRole("dialog");
+  await user.type(
+    within(dialog).getByRole("textbox", { name: "Mobile number" }),
+    "0500000098"
+  );
+  await user.click(
+    within(dialog).getByRole("button", { name: "Continue", exact: true })
+  );
+  await screen.findByTestId("phone-otp-step");
+  await user.type(
+    within(dialog).getByRole("textbox", { name: "Verification code" }),
+    "123456"
+  );
+  await user.click(
+    within(dialog).getByRole("button", {
+      name: "Verify and continue",
+      exact: true,
+    })
+  );
+  return dialog;
+}
 async function chooseProfile(
   user: ReturnType<typeof userEvent.setup>,
   dialog: HTMLElement,
@@ -231,6 +259,8 @@ beforeEach(() => {
     expiresAt: Date.now() + 900_000,
   }));
   mocks.profileGet.mockResolvedValue(baseProfile);
+  // Default: a new mobile with no customer or active agent account yet.
+  mocks.accounts.mockResolvedValue({ customer: null, activeAgent: null });
   mocks.profileSave.mockImplementation(
     async (input: {
       role: "customer" | "agent";
@@ -308,60 +338,106 @@ describe("إجراءات الدخول العامة والتحقق المشترك
     expect(mocks.profileGet).not.toHaveBeenCalled();
     expect(mocks.navigate).not.toHaveBeenCalled();
   });
-  it("keeps an existing customer in the compulsory profile phase and redirects only after a valid confirmation", async () => {
+  it("sends a registered customer straight to their requests after OTP, with no type or profile step", async () => {
     const user = userEvent.setup();
-    mocks.profileGet.mockResolvedValue(baseProfile);
-    renderHeader();
-    const dialog = await openToRole(user);
-    await chooseProfile(user, dialog, "Customer");
-    expect(mocks.profileGet).toHaveBeenCalledWith({
-      verificationToken: "verified-phone-ticket-not-real-session",
-      role: "customer",
+    mocks.accounts.mockResolvedValue({
+      customer: { fullName: "Nora Existing" },
+      activeAgent: null,
     });
-    expect(
-      (
-        within(dialog).getByRole("textbox", {
-          name: "Full name",
-        }) as HTMLInputElement
-      ).value
-    ).toBe("Nora Existing");
-    expect(within(dialog).queryByRole("checkbox")).toBeNull();
-    expect(mocks.navigate).not.toHaveBeenCalled();
-    await user.clear(
-      within(dialog).getByRole("textbox", { name: "Email address" })
+    renderHeader();
+    const dialog = await verifyOtp(user);
+    await waitFor(() =>
+      expect(mocks.navigate).toHaveBeenCalledWith("/customer-account")
     );
-    await user.type(
-      within(dialog).getByRole("textbox", { name: "Email address" }),
-      "not-an-email"
-    );
-    await user.click(
-      within(dialog).getByRole("button", { name: "Continue to my account" })
-    );
-    expect(within(dialog).getByRole("alert").textContent).toContain(
-      "valid email"
-    );
+    expect(mocks.accounts).toHaveBeenCalledWith({
+      verificationToken: "verified-phone-ticket-not-real-session",
+    });
+    expect(within(dialog).queryByRole("button", { name: /^Customer/ })).toBeNull();
+    expect(mocks.profileGet).not.toHaveBeenCalled();
     expect(mocks.profileSave).not.toHaveBeenCalled();
-    expect(mocks.navigate).not.toHaveBeenCalled();
-    await user.clear(
-      within(dialog).getByRole("textbox", { name: "Email address" })
+    expect(mocks.agent).not.toHaveBeenCalled();
+    expect(localStorage.getItem("maalamati_customer_name")).toBe("Nora Existing");
+    expect(localStorage.getItem("maalamati_customer_phone")).toBe("0500000098");
+    expect(localStorage.getItem("maalamati_customer_access_token")).toBe(
+      "verified-customer-access-not-real-session"
     );
-    await user.type(
-      within(dialog).getByRole("textbox", { name: "Email address" }),
-      "updated@example.test"
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+  it("signs a registered active agent in directly and still confirms the server role", async () => {
+    const user = userEvent.setup();
+    mocks.accounts.mockResolvedValue({
+      customer: null,
+      activeAgent: { fullName: "Active Agent" },
+    });
+    renderHeader();
+    await verifyOtp(user);
+    await waitFor(() =>
+      expect(mocks.navigate).toHaveBeenCalledWith("/agent-dashboard")
     );
+    expect(mocks.agent).toHaveBeenCalledWith({
+      verificationToken: "verified-phone-ticket-not-real-session",
+    });
+    expect(mocks.authMe).toHaveBeenCalled();
+    expect(mocks.profileGet).not.toHaveBeenCalled();
+    expect(mocks.profileSave).not.toHaveBeenCalled();
+  });
+  it("asks which account only when one mobile owns both, then opens it without a profile step", async () => {
+    const user = userEvent.setup();
+    mocks.accounts.mockResolvedValue({
+      customer: { fullName: "Dual Owner" },
+      activeAgent: { fullName: "Dual Owner" },
+    });
+    renderHeader();
+    const dialog = await verifyOtp(user);
     await user.click(
-      within(dialog).getByRole("button", { name: "Continue to my account" })
+      await within(dialog).findByRole("button", { name: /^Customer/ })
     );
     await waitFor(() =>
-      expect(mocks.profileSave).toHaveBeenCalledWith({
-        verificationToken: "verified-phone-ticket-not-real-session",
-        role: "customer",
-        fullName: "Nora Existing",
-        email: "updated@example.test",
-        acceptedTerms: false,
-      })
+      expect(mocks.navigate).toHaveBeenCalledWith("/customer-account")
     );
+    expect(mocks.profileGet).not.toHaveBeenCalled();
+    expect(mocks.agent).not.toHaveBeenCalled();
+  });
+  it("does not open a second sign-in while a customer is signed in", async () => {
+    localStorage.setItem("maalamati_customer_name", "Nora Existing");
+    localStorage.setItem("maalamati_customer_phone", "0500000098");
+    localStorage.setItem("maalamati_customer_access_token", "stored-customer-access");
+    const user = userEvent.setup();
+    renderHeader();
+    for (const row of authRows()) {
+      expect(row.queryByRole("button", { name: "Sign in" })).toBeNull();
+      expect(
+        row.getByRole("link", { name: "My requests" }).getAttribute("href")
+      ).toBe("/customer-account");
+    }
+    await user.click(authRows()[0].getByRole("link", { name: "My requests" }));
     expect(mocks.navigate).toHaveBeenCalledWith("/customer-account");
+    mocks.navigate.mockClear();
+    // Old entry points (welcome screen, /login links) are redirected too.
+    openAuthModal({ intent: "signin" });
+    await waitFor(() =>
+      expect(mocks.navigate).toHaveBeenCalledWith("/customer-account")
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(mocks.info).toHaveBeenCalledWith(
+      "You're already signed in as Nora Existing.",
+      expect.objectContaining({ description: expect.stringContaining("Sign out first") })
+    );
+    expect(mocks.request).not.toHaveBeenCalled();
+  });
+  it("sends a signed-in agent to the agent workspace instead of the sign-in window", async () => {
+    mocks.auth.user = { name: "QA Agent", email: "agent@test", role: "agent" };
+    renderHeader();
+    for (const row of authRows()) {
+      expect(
+        row.getByRole("link", { name: "Agent workspace" }).getAttribute("href")
+      ).toBe("/agent-dashboard");
+    }
+    openAuthModal({ intent: "signin" });
+    await waitFor(() =>
+      expect(mocks.navigate).toHaveBeenCalledWith("/agent-dashboard")
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
   it("requires terms only for a new customer and saves no profile before consent", async () => {
     const user = userEvent.setup();
@@ -392,8 +468,9 @@ describe("إجراءات الدخول العامة والتحقق المشترك
       )
     );
   });
-  it("checks an active agent only after profile confirmation, then confirms the server role before routing", async () => {
+  it("falls back to the type and profile steps if the account lookup fails, then confirms the agent role", async () => {
     const user = userEvent.setup();
+    mocks.accounts.mockRejectedValue(new Error("lookup unavailable"));
     mocks.profileGet.mockResolvedValue({
       profile: { fullName: "Active Agent", email: "agent@example.test" },
       hasActiveAgent: true,

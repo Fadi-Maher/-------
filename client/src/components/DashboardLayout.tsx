@@ -21,7 +21,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useIsMobile } from "@/hooks/useMobile";
-import { BadgeCheck, Bot, BriefcaseBusiness, History, LayoutDashboard, LogOut, PanelLeft, Settings, Users } from "lucide-react";
+import { BadgeCheck, BellRing, Bot, BriefcaseBusiness, History, LayoutDashboard, LogOut, PanelLeft, Settings, Users } from "lucide-react";
 import { CSSProperties, useEffect } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -34,6 +34,7 @@ const menuItems = [
   { icon: LayoutDashboard, label: "الطلبات", path: "/dashboard" },
   { icon: Settings, label: "إعدادات النموذج", path: "/settings" },
   { icon: Bot, label: "معرفة المساعد", path: "/settings/assistant" },
+  { icon: BellRing, label: "الإشعارات والإعلانات", path: "/settings/notifications" },
   { icon: History, label: "سجل التدقيق", path: "/audit" },
   { icon: Users, label: "واجهة الموقع", path: "/" },
 ];

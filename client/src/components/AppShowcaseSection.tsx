@@ -2,8 +2,8 @@ import { PwaInstall } from "@/components/PwaInstall";
 import { CheckCircle2, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 
-const APP_DEMO_VIDEO_URL = "/manus-storage/maalamati-my-requests-demo_0ac8bb82.mp4";
-const APP_DEMO_POSTER_URL = "/manus-storage/maalamati-requests-scene-1_7c388ba9.png";
+const APP_DEMO_VIDEO_URL = "/manus-storage/maalamati-my-requests-demo_0ac8bb82_c4d30924.mp4";
+const APP_DEMO_POSTER_URL = "/manus-storage/maalamati-requests-scene-1_7c388ba9_97e78440.png";
 
 export function AppShowcaseSection({ isEnglish }: { isEnglish: boolean }) {
   const [reduceMotion, setReduceMotion] = useState(false);

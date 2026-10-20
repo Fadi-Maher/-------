@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CUSTOMER_SESSION_EVENT, readCustomerSession } from "@/lib/customerSession";
+import { useSignedInWorkspace, workspaceLabel } from "@/lib/signedInWorkspace";
 import { BriefcaseBusiness, Building2, Headphones, Home, LogOut, Menu, Route, UserRound } from "lucide-react";
 
 const productNav = [
@@ -90,20 +91,13 @@ function PublicAuthActions({ compact = false }: { compact?: boolean }) {
 
 function SideNavigation({ onChooseService }: { onChooseService: (service: string) => void }) {
   const { isEnglish } = useLanguage();
-  const [customerLoggedIn, setCustomerLoggedIn] = useState(false);
-  useEffect(() => {
-    const refresh = () => setCustomerLoggedIn(Boolean(readCustomerSession(localStorage)));
-    refresh();
-    window.addEventListener(CUSTOMER_SESSION_EVENT, refresh);
-    window.addEventListener("storage", refresh);
-    return () => {
-      window.removeEventListener(CUSTOMER_SESSION_EVENT, refresh);
-      window.removeEventListener("storage", refresh);
-    };
-  }, []);
+  const { workspace } = useSignedInWorkspace();
   const items = [
     { ar: "الرئيسية", en: "Home", icon: Home, href: "/" },
-    ...(!customerLoggedIn ? [{ ar: "الدخول", en: "Sign in", icon: UserRound, href: "/login" }] : []),
+    // Signed in: open the current account; otherwise start sign-in.
+    workspace
+      ? { ar: workspaceLabel(workspace, false), en: workspaceLabel(workspace, true), icon: UserRound, href: workspace.href }
+      : { ar: "الدخول", en: "Sign in", icon: UserRound, href: "/login" },
     { ar: "تعقّب المعاملات", en: "Track requests", icon: Route, action: "تعقّب المعاملات" },
     { ar: "طلب خدمة", en: "Request a service", icon: Building2, action: "طلب خدمة" },
     { ar: "خدمات الأعمال", en: "Business services", icon: BriefcaseBusiness, action: "طلب خدمة" },

@@ -4,6 +4,7 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { MaalamatiAssistant } from "./components/MaalamatiAssistant";
+import { AnnouncementBar } from "./components/AnnouncementBar";
 import { AuthModal } from "./components/AuthModal";
 import { BrandWelcome, WelcomePage } from "./components/BrandWelcome";
 import Account from "./pages/Account";
@@ -26,6 +27,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import RequestSettings from "./pages/RequestSettings";
 import AssistantKnowledge from "./pages/AssistantKnowledge";
+import NotificationSettings from "./pages/NotificationSettings";
 import RequestsDashboard from "./pages/RequestsDashboard";
 import TrackRequest from "./pages/TrackRequest";
 import TermsAndConditions from "./pages/TermsAndConditions";
@@ -57,6 +59,7 @@ function Router() {
       <Route path={"/customers"} component={CustomersDashboard} />
       <Route path={"/settings"} component={RequestSettings} />
       <Route path={"/settings/assistant"} component={AssistantKnowledge} />
+      <Route path={"/settings/notifications"} component={NotificationSettings} />
       <Route path={"/track"} component={TrackRequest} />
       <Route path={"/terms-and-conditions"} component={TermsAndConditions} />
       <Route path={"/refund-and-cancellation"} component={RefundAndCancellation} />
@@ -82,6 +85,7 @@ function App() {
         >
           <TooltipProvider>
             <Toaster />
+            <AnnouncementBar />
             <Router />
             <MaalamatiAssistant />
             <BrandWelcome />

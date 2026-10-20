@@ -30,6 +30,7 @@ import {
   users,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
+import { buildNotificationContent } from './notificationTemplateStore';
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -457,8 +458,8 @@ export async function expirePendingProviderSelections() {
       const updated = await tx.update(transactionRequests).set({ assigneeId: null, quoteSelectedAt: null, providerAcceptanceDeadline: null, providerAcceptedAt: null, quoteSubmissionDeadline: new Date(now.getTime() + 24 * 60 * 60 * 1000), status: "received" }).where(and(eq(transactionRequests.id, request.id), eq(transactionRequests.assigneeId, request.assigneeId), isNull(transactionRequests.providerAcceptedAt)));
       if (Number(updated[0].affectedRows) !== 1) return;
       await tx.update(requestQuotes).set({ status: "withdrawn" }).where(eq(requestQuotes.id, selectedQuote.id));
-      await tx.insert(teamNotifications).values({ recipientUserId: request.assigneeId, requestId: request.id, type: "assignment_expired", title: "انتهت مهلة قبول الطلب", message: "لم يُقبل الطلب خلال المهلة، وأُعيد فتح الاختيار للعميل." });
-      await tx.insert(customerNotifications).values({ phone: request.phone, requestId: request.id, type: "provider_acceptance_expired", title: "انتهت مهلة مقدم الخدمة", message: "لم يؤكد مقدم الخدمة استلام الطلب خلال المهلة. يمكنك اختيار عرض آخر." });
+      await tx.insert(teamNotifications).values({ recipientUserId: request.assigneeId, requestId: request.id, ...(await buildNotificationContent(tx, "team.assignment_expired")) });
+      await tx.insert(customerNotifications).values({ phone: request.phone, requestId: request.id, ...(await buildNotificationContent(tx, "customer.provider_acceptance_expired")) });
       await tx.insert(requestUpdates).values({ requestId: request.id, status: "received", message: "انتهت مهلة قبول مقدم الخدمة، وأُعيد فتح الطلب لاختيار عرض آخر." });
       await tx.insert(auditLogs).values({ actorUserId: null, actorRole: "system", actorName: "النظام", requestId: request.id, action: "provider_acceptance_expired", summary: "انتهت مهلة مقدم الخدمة وأعيد فتح الطلب للاختيار.", beforeJson: JSON.stringify({ assigneeId: request.assigneeId, quoteId: selectedQuote.id }), afterJson: JSON.stringify({ assigneeId: null, quoteSubmissionDeadline: new Date(now.getTime() + 24 * 60 * 60 * 1000) }) });
     });
@@ -560,9 +561,8 @@ export async function upsertRequestQuote(input: { requestId: number; providerUse
       afterJson: JSON.stringify({ priceAmount: input.priceAmount, durationDays: input.durationDays, note: input.note?.trim() || null }),
     });
     if (!previous || previous.status === "withdrawn") {
-      await tx.insert(customerNotifications).values(firstQuoteNotification
-        ? { phone: request.phone, requestId: request.id, type: "quote_received", title: "وصل عرض سعر جديد", message: `وصل عرض بقيمة ${input.priceAmount} ر.س ومدة ${input.durationDays} يوم. افتح طلبك للمقارنة.` }
-        : { phone: request.phone, requestId: request.id, type: "first_quote_received", title: "وصل أول عرض سعر", message: `وصل أول عرض على طلبك بقيمة ${input.priceAmount} ر.س ومدة ${input.durationDays} يوم. افتح طلباتي للمقارنة.` });
+      const quoteContent = await buildNotificationContent(tx, firstQuoteNotification ? "customer.quote_received" : "customer.first_quote_received", { price: input.priceAmount, days: input.durationDays });
+      await tx.insert(customerNotifications).values({ phone: request.phone, requestId: request.id, ...quoteContent });
     }
     return { updated: Boolean(previous) };
   });
@@ -592,8 +592,8 @@ export async function acceptQuoteForCustomer(input: { phone: string; quoteId: nu
     const updated = await tx.update(transactionRequests).set({ assigneeId: quote.providerUserId, quoteSelectedAt: selectedAt, providerAcceptanceDeadline, providerAcceptedAt: null, status: "in_review" }).where(and(eq(transactionRequests.id, request.id), eq(transactionRequests.phone, input.phone), isNull(transactionRequests.assigneeId), isNull(transactionRequests.quoteSelectedAt), ne(transactionRequests.status, "completed")));
     if (Number(updated[0].affectedRows) !== 1) throw new Error("تم اعتماد عرض لهذا الطلب مسبقًا.");
     await tx.update(requestQuotes).set({ status: "selected" }).where(eq(requestQuotes.id, quote.id));
-    await tx.insert(teamNotifications).values({ recipientUserId: quote.providerUserId, requestId: request.id, type: "quote_selected", title: "اختار العميل عرضك", message: "لديك ساعتان لتأكيد استلام الطلب قبل إعادة فتح الاختيار للعميل." });
-    await tx.insert(customerNotifications).values({ phone: request.phone, requestId: request.id, type: "quote_selected", title: "تم اختيار العرض", message: `أُرسل الاختيار إلى ${quote.providerName}. ينتظر النظام تأكيد الاستلام خلال ساعتين.` });
+    await tx.insert(teamNotifications).values({ recipientUserId: quote.providerUserId, requestId: request.id, ...(await buildNotificationContent(tx, "team.quote_selected")) });
+    await tx.insert(customerNotifications).values({ phone: request.phone, requestId: request.id, ...(await buildNotificationContent(tx, "customer.quote_selected", { provider: quote.providerName })) });
     await tx.insert(requestUpdates).values({ requestId: request.id, status: "in_review", message: `اختار العميل عرض ${quote.providerName} بقيمة ${quote.priceAmount} ر.س ومدة ${quote.durationDays} يوم، وينتظر تأكيد مقدم الخدمة.` });
     await tx.insert(auditLogs).values({ actorUserId: null, actorRole: "customer", actorName: request.requesterName, requestId: request.id, action: "quote_selected", summary: "اختار العميل عرض سعر وينتظر قبول مقدم الخدمة.", beforeJson: JSON.stringify({ assigneeId: request.assigneeId, quoteSelectedAt: request.quoteSelectedAt }), afterJson: JSON.stringify({ assigneeId: quote.providerUserId, quoteId: quote.id, priceAmount: quote.priceAmount, durationDays: quote.durationDays, providerAcceptanceDeadline }) });
     return { requestId: request.id, providerName: quote.providerName, priceAmount: quote.priceAmount, durationDays: quote.durationDays, providerAcceptanceDeadline };
@@ -608,7 +608,7 @@ export async function withdrawRequestQuote(input: { requestId: number; providerU
     const quote = (await tx.select().from(requestQuotes).where(and(eq(requestQuotes.requestId, input.requestId), eq(requestQuotes.providerUserId, input.providerUserId), eq(requestQuotes.status, "submitted"))).limit(1))[0];
     if (!request || !quote || request.quoteSelectedAt || request.assigneeId) throw new Error("لا يمكن سحب هذا العرض بعد اختياره.");
     await tx.update(requestQuotes).set({ status: "withdrawn" }).where(eq(requestQuotes.id, quote.id));
-    await tx.insert(customerNotifications).values({ phone: request.phone, requestId: request.id, type: "quote_withdrawn", title: "تم سحب عرض سعر", message: `سحب ${quote.providerName} عرضه قبل الاعتماد. يمكنك متابعة بقية العروض.` });
+    await tx.insert(customerNotifications).values({ phone: request.phone, requestId: request.id, ...(await buildNotificationContent(tx, "customer.quote_withdrawn", { provider: quote.providerName })) });
     await tx.insert(auditLogs).values({ actorUserId: input.providerUserId, actorRole: quote.providerRole, actorName: quote.providerName, requestId: request.id, action: "quote_withdrawn", summary: "سحب عضو الفريق عرضه قبل اعتماد العميل.", beforeJson: JSON.stringify({ status: quote.status, priceAmount: quote.priceAmount, durationDays: quote.durationDays }), afterJson: JSON.stringify({ status: "withdrawn" }) });
     return { success: true } as const;
   });
@@ -630,8 +630,11 @@ export async function acceptSelectedQuoteForProvider(input: { requestId: number;
     const competing = await tx.select({ providerUserId: requestQuotes.providerUserId }).from(requestQuotes).where(and(eq(requestQuotes.requestId, request.id), ne(requestQuotes.providerUserId, input.providerUserId), eq(requestQuotes.status, "submitted")));
     await tx.update(requestQuotes).set({ status: "declined" }).where(and(eq(requestQuotes.requestId, request.id), ne(requestQuotes.id, quote.id), eq(requestQuotes.status, "submitted")));
     const declinedUserIds = Array.from(new Set(competing.map((item) => item.providerUserId)));
-    if (declinedUserIds.length) await tx.insert(teamNotifications).values(declinedUserIds.map((recipientUserId) => ({ recipientUserId, requestId: request.id, type: "quote_declined", title: "تم قبول عرض آخر", message: "أكد مقدم العرض المختار استلام الطلب، وأُغلقت بقية العروض." })));
-    await tx.insert(customerNotifications).values({ phone: request.phone, requestId: request.id, type: "request_received", title: "تم استلام طلبك", message: `${quote.providerName} أكد استلام طلبك وبدأت مرحلة التنفيذ.` });
+    if (declinedUserIds.length) {
+      const declinedContent = await buildNotificationContent(tx, "team.quote_declined");
+      await tx.insert(teamNotifications).values(declinedUserIds.map((recipientUserId) => ({ recipientUserId, requestId: request.id, ...declinedContent })));
+    }
+    await tx.insert(customerNotifications).values({ phone: request.phone, requestId: request.id, ...(await buildNotificationContent(tx, "customer.request_received", { provider: quote.providerName })) });
     await tx.insert(requestUpdates).values({ requestId: request.id, status: "in_progress", message: `${quote.providerName} أكد استلام الطلب وبدأ العمل عليه.` });
     await tx.insert(auditLogs).values({ actorUserId: input.providerUserId, actorRole: quote.providerRole, actorName: quote.providerName, requestId: request.id, action: "provider_accepted_request", summary: "أكد مقدم الخدمة استلام الطلب ضمن المهلة.", beforeJson: JSON.stringify({ status: request.status, providerAcceptedAt: request.providerAcceptedAt }), afterJson: JSON.stringify({ status: "in_progress", providerAcceptedAt: acceptedAt }) });
     return { success: true, acceptedAt } as const;
@@ -839,7 +842,7 @@ export async function createAssignedRequestUpdateWithAudit(input: {
       beforeJson: JSON.stringify({ status: before.status }),
       afterJson: JSON.stringify({ status: input.status ?? before.status, updateId, message: input.message }),
     });
-    await tx.insert(customerNotifications).values({ phone: before.phone, requestId: input.requestId, type: "request_update", title: input.status ? "تحديث حالة طلبك" : "تحديث جديد على طلبك", message: input.message.slice(0, 500) });
+    await tx.insert(customerNotifications).values({ phone: before.phone, requestId: input.requestId, ...(await buildNotificationContent(tx, input.status ? "customer.request_status_update" : "customer.request_message", { message: input.message })) });
     return { updateId };
   });
 }
@@ -864,7 +867,7 @@ export async function createCustomerRequestComment(input: { phone: string; reque
     if (request.status === "completed") throw new TRPCError({ code: "CONFLICT", message: "أُغلقت المراسلة والتحديثات بعد اكتمال الطلب. السجل للقراءة فقط." });
     const result = await tx.insert(requestUpdates).values({ requestId: input.requestId, message: input.message, status: null, senderType: "customer", senderUserId: null, senderName: request.requesterName });
     const updateId = Number(result[0].insertId);
-    await tx.insert(teamNotifications).values({ recipientUserId: request.assigneeId, requestId: request.id, type: "customer_comment", title: "رسالة جديدة من العميل", message: input.message.slice(0, 500) });
+    await tx.insert(teamNotifications).values({ recipientUserId: request.assigneeId, requestId: request.id, ...(await buildNotificationContent(tx, "team.customer_comment", { message: input.message })) });
     await tx.insert(auditLogs).values({ actorUserId: null, actorRole: "customer", actorName: request.requesterName, requestId: request.id, action: "customer_comment", summary: "أرسل العميل تعليقًا إلى مقدم الخدمة.", beforeJson: null, afterJson: JSON.stringify({ updateId, message: input.message }) });
     return { updateId };
   });
@@ -883,7 +886,7 @@ export async function createCustomerConversationAttachment(input: { phone: strin
     const result = await tx.insert(requestUpdates).values({ requestId: input.requestId, message, status: null, senderType: "customer", senderUserId: null, senderName: request.requesterName });
     const updateId = Number(result[0].insertId);
     await tx.insert(requestAttachments).values({ updateId, ...input.attachment });
-    await tx.insert(teamNotifications).values({ recipientUserId: request.assigneeId, requestId: request.id, type: "customer_comment", title: "مرفق جديد من العميل", message: `${request.requesterName} أرفق ${input.attachment.fileName}`.slice(0, 500) });
+    await tx.insert(teamNotifications).values({ recipientUserId: request.assigneeId, requestId: request.id, ...(await buildNotificationContent(tx, "team.customer_attachment", { customer: request.requesterName, file: input.attachment.fileName })) });
     await tx.insert(auditLogs).values({ actorUserId: null, actorRole: "customer", actorName: request.requesterName, requestId: request.id, action: "customer_attachment", summary: "أرسل العميل مرفقًا داخل محادثة الطلب.", beforeJson: null, afterJson: JSON.stringify({ updateId, fileName: input.attachment.fileName, mimeType: input.attachment.mimeType, size: input.attachment.size }) });
     return { updateId };
   });
@@ -900,7 +903,7 @@ export async function createTeamConversationAttachment(input: { requestId: numbe
     const result = await tx.insert(requestUpdates).values({ requestId: input.requestId, message, status: null, senderType: input.actorRole, senderUserId: input.actorUserId, senderName: input.actorName });
     const updateId = Number(result[0].insertId);
     await tx.insert(requestAttachments).values({ updateId, ...input.attachment });
-    await tx.insert(customerNotifications).values({ phone: request.phone, requestId: request.id, type: "request_update", title: "مرفق جديد من مقدم الخدمة", message: `${input.actorName || "مقدم الخدمة"} أرفق ${input.attachment.fileName}`.slice(0, 500) });
+    await tx.insert(customerNotifications).values({ phone: request.phone, requestId: request.id, ...(await buildNotificationContent(tx, "customer.provider_attachment", { file: input.attachment.fileName, ar: { provider: input.actorName || "مقدم الخدمة" }, en: { provider: input.actorName || "The provider" } })) });
     await tx.insert(auditLogs).values({ actorUserId: input.actorUserId, actorRole: input.actorRole, actorName: input.actorName, requestId: request.id, action: `${input.actorRole}_attachment`, summary: "أرسل مقدم الخدمة مرفقًا داخل محادثة الطلب.", beforeJson: null, afterJson: JSON.stringify({ updateId, fileName: input.attachment.fileName, mimeType: input.attachment.mimeType, size: input.attachment.size }) });
     return { updateId };
   });
@@ -918,7 +921,7 @@ export async function createRequestReviewForCustomer(input: { phone: string; req
     if (!provider) throw new Error("حساب مقدم الخدمة غير متاح للتقييم.");
     const result = await tx.insert(requestReviews).values({ requestId: request.id, customerId: request.customerId, providerUserId: request.assigneeId, providerName: provider.fullName, providerRole: provider.role, rating: input.rating, reviewText: input.reviewText?.trim() || null });
     const reviewId = Number(result[0].insertId);
-    await tx.insert(teamNotifications).values({ recipientUserId: request.assigneeId, requestId: request.id, type: "customer_review", title: "وصل تقييم جديد", message: `قيّم العميل الخدمة ${input.rating} من 5.` });
+    await tx.insert(teamNotifications).values({ recipientUserId: request.assigneeId, requestId: request.id, ...(await buildNotificationContent(tx, "team.customer_review", { rating: input.rating })) });
     await tx.insert(auditLogs).values({ actorUserId: null, actorRole: "customer", actorName: request.requesterName, requestId: request.id, action: "customer_review", summary: "أرسل العميل تقييمًا بعد اكتمال الطلب.", beforeJson: null, afterJson: JSON.stringify({ reviewId, rating: input.rating, hasText: Boolean(input.reviewText?.trim()) }) });
     return (await tx.select().from(requestReviews).where(eq(requestReviews.id, reviewId)).limit(1))[0];
   });
@@ -949,7 +952,7 @@ export async function updateRequestWorkflow(input: {
   if (input.assigneeId && input.assigneeId !== before?.assigneeId) {
     try {
       const activeStaff = (await db.select({ id: staffAccounts.id }).from(staffAccounts).where(and(eq(staffAccounts.userId, input.assigneeId), eq(staffAccounts.isActive, true))).limit(1))[0];
-      if (activeStaff) await createTeamNotification({ recipientUserId: input.assigneeId, requestId: input.id, type: "request_assigned", title: "طلب جديد مسند إليك", message: `تم إسناد ${before?.category || "طلب"} إلى حسابك. افتح بوابة الفريق لمراجعته.` });
+      if (activeStaff) await createTeamNotification({ recipientUserId: input.assigneeId, requestId: input.id, ...(await buildNotificationContent(db, "team.request_assigned", { ar: { service: before?.category || "طلب" }, en: { service: before?.category || "A request" } })) });
     } catch (error) {
       console.warn("[Notifications] Failed to notify assignee:", error);
     }
@@ -963,14 +966,20 @@ export async function notifyActiveTeamOfNewRequest(input: { requestId: number; c
   const userIds = Array.from(new Set(recipients.flatMap((row) => row.userId ? [row.userId] : [])));
   if (!userIds.length) return 0;
   const service = input.subcategory ? `${input.category} — ${input.subcategory}` : input.category;
-  const safeSummary = input.details
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[بريد محجوب]")
-    .replace(/(?:\+?966|00966|0)?5\d{8}/g, "[جوال محجوب]")
+  const summarize = (emailLabel: string, phoneLabel: string) => input.details
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, emailLabel)
+    .replace(/(?:\+?966|00966|0)?5\d{8}/g, phoneLabel)
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 180);
-  const message = safeSummary ? `الخدمة: ${service}. ${safeSummary}` : `الخدمة: ${service}. افتح الطلب للاطلاع على التفاصيل.`;
-  await db.insert(teamNotifications).values(userIds.map((recipientUserId) => ({ recipientUserId, requestId: input.requestId, type: "new_customer_request", title: "وصل طلب جديد من عميل", message })));
+  const summaryAr = summarize("[بريد محجوب]", "[جوال محجوب]");
+  const summaryEn = summarize("[email hidden]", "[phone hidden]");
+  const content = await buildNotificationContent(db, "team.new_customer_request", {
+    service,
+    ar: { summary: summaryAr || "افتح الطلب للاطلاع على التفاصيل." },
+    en: { summary: summaryEn || "Open the request to view the details." },
+  });
+  await db.insert(teamNotifications).values(userIds.map((recipientUserId) => ({ recipientUserId, requestId: input.requestId, ...content })));
   return userIds.length;
 }
 

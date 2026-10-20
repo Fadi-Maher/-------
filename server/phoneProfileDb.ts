@@ -35,7 +35,11 @@ export type SavePhoneProfileInput = SavedPhoneProfile & {
   role: PhoneProfileRole;
   acceptedTerms?: boolean;
 };
-
+/** Which existing accounts a verified phone already owns. Read-only; never creates or links anything. */
+export type PhoneAccountsResult = {
+  customer: { fullName: string } | null;
+  activeAgent: { fullName: string } | null;
+};
 const SAUDI_MOBILE = /^05\d{8}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -213,6 +217,31 @@ export async function getPhoneProfile(
     profile: staged ? profileFrom(staged) : null,
     isNewCustomer: false,
     hasActiveAgent: false,
+  };
+}
+
+/**
+ * Lets the sign-in window send a returning customer or active agent straight to
+ * their workspace after OTP, skipping the account-type and profile steps.
+ */
+export async function getPhoneAccounts(phone: string): Promise<PhoneAccountsResult> {
+  assertPhone(phone);
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const [customerRows, active] = await Promise.all([
+    db
+      .select({ fullName: customers.fullName })
+      .from(customers)
+      .where(eq(customers.phone, phone))
+      .limit(1),
+    activeAgentProfile(db, phone),
+  ]);
+  const customer = customerRows[0] ?? null;
+  return {
+    customer: customer ? { fullName: customer.fullName?.trim() || "" } : null,
+    activeAgent: active
+      ? { fullName: active.user.name?.trim() || active.account.fullName.trim() }
+      : null,
   };
 }
 

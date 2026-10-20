@@ -52,6 +52,11 @@ import {
   type AuthModalRequest,
 } from "@/lib/authFlow";
 import { useLocation } from "wouter";
+import { toast } from "sonner";
+import {
+  alreadySignedInMessage,
+  useSignedInWorkspace,
+} from "@/lib/signedInWorkspace";
 
 type Phase = "phone" | "otp" | "role" | "profile" | "complete";
 type Verified = {
@@ -60,6 +65,16 @@ type Verified = {
   accessToken: string;
   expiresAt: number;
 };
+type KnownAccounts = {
+  customer: { fullName: string } | null;
+  activeAgent: { fullName: string } | null;
+};
+type RequestedAudience = "choose" | "customer" | "agent";
+/** Legacy links keep their intent: /agent-login always reaches the agent path. */
+function audienceForPath(pathname: string): RequestedAudience {
+  if (pathname === "/agent-login") return "agent";
+  return "choose";
+}
 // The parent agent adds this optional handoff prop to AgentJoinForm. Keeping the
 // narrow compatibility type makes this modal safe while that component lands.
 const AgentJoinFormWithProfile = AgentJoinForm as ComponentType<
@@ -82,6 +97,13 @@ export function AuthModal() {
   const { isEnglish } = useLanguage();
   const [, navigate] = useLocation();
   const utils = trpc.useUtils();
+  const { workspace } = useSignedInWorkspace();
+  const workspaceRef = useRef(workspace);
+  workspaceRef.current = workspace;
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
+  const languageRef = useRef(isEnglish);
+  languageRef.current = isEnglish;
   const requestCode = trpc.phoneAuth.requestCode.useMutation();
   const resendCode = trpc.phoneAuth.resendCode.useMutation();
   const verifyCode = trpc.phoneAuth.verifyCode.useMutation();
@@ -102,6 +124,11 @@ export function AuthModal() {
     null
   );
   const [isNewCustomer, setIsNewCustomer] = useState(false);
+  const [knownAccounts, setKnownAccounts] = useState<KnownAccounts | null>(
+    null
+  );
+  const [requestedAudience, setRequestedAudience] =
+    useState<RequestedAudience>("choose");
   const [code, setCode] = useState("");
   const [clockOffset, setClockOffset] = useState(0);
   const [now, setNow] = useState(Date.now());
@@ -134,6 +161,15 @@ export function AuthModal() {
         !["choose", "customer", "agent"].includes(request.audience)
       )
         return;
+      const current = workspaceRef.current;
+      if (current) {
+        // One account at a time: a signed-in visitor goes to their own workspace
+        // and must sign out before using another mobile or account.
+        const copy = alreadySignedInMessage(current, languageRef.current);
+        toast.info(copy.title, { description: copy.description });
+        navigateRef.current(current.href);
+        return;
+      }
       openerRef.current =
         request.trigger ??
         (document.activeElement instanceof HTMLElement
@@ -152,6 +188,8 @@ export function AuthModal() {
       setVerified(null);
       setSavedProfile(null);
       setIsNewCustomer(false);
+      setKnownAccounts(null);
+      setRequestedAudience(request.audience ?? "choose");
       setClockOffset(0);
       verifyKeyRef.current = "";
       setGeneration(value => value + 1);
@@ -191,7 +229,11 @@ export function AuthModal() {
       )
         return;
       event.preventDefault();
-      openAuthModal({ intent: "signin", trigger: anchor });
+      openAuthModal({
+        intent: "signin",
+        audience: audienceForPath(target.pathname),
+        trigger: anchor,
+      });
     };
     window.addEventListener(AUTH_MODAL_OPEN_EVENT, onOpen);
     window.addEventListener(AUTH_COMPLETED_EVENT, onComplete);
@@ -236,6 +278,7 @@ export function AuthModal() {
     setVerified(null);
     setSavedProfile(null);
     setIsNewCustomer(false);
+    setKnownAccounts(null);
     verifyKeyRef.current = "";
     setGeneration(value => value + 1);
   }, []);
@@ -247,6 +290,7 @@ export function AuthModal() {
     setVerified(null);
     setSavedProfile(null);
     setIsNewCustomer(false);
+    setKnownAccounts(null);
     verifyKeyRef.current = crypto.randomUUID();
   };
   const startCode = async () => {
@@ -322,39 +366,6 @@ export function AuthModal() {
       updateBusy(false);
     }
   };
-  const verify = async () => {
-    if (!challenge || code.length !== 6 || !beginAction()) return;
-    try {
-      const value = await verifyCode.mutateAsync({
-        challengeId: challenge.challengeId,
-        code,
-        clientKey: verifyKeyRef.current,
-        language,
-      });
-      if (value.phone !== phone)
-        throw new Error(
-          isEnglish
-            ? "Verification did not match your mobile. Start again."
-            : "لم يتطابق التحقق مع رقم الجوال. أعد المحاولة."
-        );
-      setVerified(value);
-      setCode("");
-      setNotice("");
-      setPhase("role");
-    } catch (failure) {
-      setError(
-        actionError(
-          failure,
-          isEnglish
-            ? "The code could not be verified. Check it and try again."
-            : "تعذر التحقق من الرمز. راجعه وحاول مرة أخرى.",
-          isEnglish
-        )
-      );
-    } finally {
-      updateBusy(false);
-    }
-  };
   const ensureVerified = () => {
     if (
       !verified ||
@@ -368,8 +379,7 @@ export function AuthModal() {
       );
     return verified;
   };
-  const finishAgent = async () => {
-    const proof = ensureVerified();
+  const finishAgent = async (proof: Verified = ensureVerified()) => {
     const result = await agentSignIn.mutateAsync({
       verificationToken: proof.verificationToken,
     });
@@ -393,20 +403,106 @@ export function AuthModal() {
       navigate
     );
   };
+  /** A returning customer needs no extra step: the OTP access token opens their requests. */
+  const finishExistingCustomer = (proof: Verified, name: string) => {
+    saveCustomerSession({
+      name,
+      phone: proof.phone,
+      accessToken: proof.accessToken,
+    });
+    finishSignIn({ role: "customer", name }, isEnglish, navigate);
+  };
+  const openProfile = async (role: "customer" | "agent", proof: Verified) => {
+    // Only new accounts (or agents still applying) complete name and email here.
+    const profile = await utils.phoneProfile.get.fetch({
+      verificationToken: proof.verificationToken,
+      role,
+    });
+    setAudience(role);
+    setSavedProfile(profile.profile);
+    setIsNewCustomer(profile.isNewCustomer);
+    setPhase("profile");
+  };
+  const verify = async () => {
+    if (!challenge || code.length !== 6 || !beginAction()) return;
+    let proof: Verified | null = null;
+    try {
+      const value = await verifyCode.mutateAsync({
+        challengeId: challenge.challengeId,
+        code,
+        clientKey: verifyKeyRef.current,
+        language,
+      });
+      if (value.phone !== phone)
+        throw new Error(
+          isEnglish
+            ? "Verification did not match your mobile. Start again."
+            : "لم يتطابق التحقق مع رقم الجوال. أعد المحاولة."
+        );
+      proof = value;
+      setVerified(value);
+      setCode("");
+      setNotice("");
+      let accounts: KnownAccounts | null = null;
+      try {
+        accounts = await utils.phoneProfile.accounts.fetch({
+          verificationToken: value.verificationToken,
+        });
+      } catch {
+        // If the lookup fails, the account-type step still works as before.
+        accounts = null;
+      }
+      setKnownAccounts(accounts);
+      const customer = accounts?.customer?.fullName ? accounts.customer : null;
+      const agent = accounts?.activeAgent ?? null;
+      if (requestedAudience === "agent") {
+        if (agent) await finishAgent(value);
+        else await openProfile("agent", value);
+        return;
+      }
+      // Registered mobile: straight to the account, no type or profile step.
+      if (customer && !agent) {
+        finishExistingCustomer(value, customer.fullName);
+        return;
+      }
+      if (agent && !customer) {
+        await finishAgent(value);
+        return;
+      }
+      // New mobile, or one that owns both accounts: choose the account type.
+      setPhase("role");
+    } catch (failure) {
+      if (proof) setPhase("role");
+      setError(
+        actionError(
+          failure,
+          proof
+            ? isEnglish
+              ? "We could not open your account. Choose your account type to try again."
+              : "تعذر فتح حسابك. اختر نوع الحساب للمحاولة مرة أخرى."
+            : isEnglish
+              ? "The code could not be verified. Check it and try again."
+              : "تعذر التحقق من الرمز. راجعه وحاول مرة أخرى.",
+          isEnglish
+        )
+      );
+    } finally {
+      updateBusy(false);
+    }
+  };
   const chooseRole = async (role: "customer" | "agent") => {
     if (!beginAction()) return;
     try {
       const proof = ensureVerified();
-      // Every signed-in phone, including an existing customer or active agent,
-      // sees this one profile step before any redirect or join form.
-      const profile = await utils.phoneProfile.get.fetch({
-        verificationToken: proof.verificationToken,
-        role,
-      });
-      setAudience(role);
-      setSavedProfile(profile.profile);
-      setIsNewCustomer(profile.isNewCustomer);
-      setPhase("profile");
+      if (role === "customer" && knownAccounts?.customer?.fullName) {
+        finishExistingCustomer(proof, knownAccounts.customer.fullName);
+        return;
+      }
+      if (role === "agent" && knownAccounts?.activeAgent) {
+        await finishAgent(proof);
+        return;
+      }
+      await openProfile(role, proof);
     } catch (failure) {
       setError(
         actionError(
@@ -607,8 +703,8 @@ export function AuthModal() {
           </div>
           <DialogDescription className="sr-only">
             {isEnglish
-              ? "Enter your mobile, verify the code, then choose Customer or Agent. New agents submit a request for admin approval."
-              : "أدخل رقم الجوال، وتحقق من الرمز، ثم اختر عميلًا أو معقبًا. يرسل المعقب الجديد طلبًا لموافقة الإدارة."}
+              ? "Enter your mobile and verify the code. Registered accounts open directly; new mobiles choose Customer or Agent. New agents submit a request for admin approval."
+              : "أدخل رقم الجوال وتحقق من الرمز. الحساب المسجل يُفتح مباشرة، والرقم الجديد يختار عميلًا أو معقبًا. يرسل المعقب الجديد طلبًا لموافقة الإدارة."}
           </DialogDescription>
         </DialogHeader>
         <ol
@@ -653,8 +749,8 @@ export function AuthModal() {
               </h2>
               <p className="mt-2 text-sm leading-7 text-[#536e88]">
                 {isEnglish
-                  ? "One entry for new and existing accounts. Verify your mobile once, then choose Customer or Agent."
-                  : "مدخل واحد للحساب الجديد أو الموجود. تحقّق من جوالك مرة واحدة، ثم اختر عميلًا أو معقبًا."}
+                  ? "One entry for new and existing accounts. If your mobile is already registered, you go straight to your account after the code."
+                  : "مدخل واحد للحساب الجديد أو الموجود. إذا كان رقمك مسجلًا تدخل مباشرة إلى حسابك بعد الرمز."}
               </p>
             </div>
             <div>

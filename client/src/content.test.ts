@@ -22,6 +22,9 @@ const teamRequestDetail = readFileSync(new URL("./pages/TeamRequestDetail.tsx", 
 const auditDashboard = readFileSync(new URL("./pages/AuditDashboard.tsx", import.meta.url), "utf8");
 const oauthCallback = readFileSync(new URL("../../server/_core/oauth.ts", import.meta.url), "utf8");
 const serverDb = readFileSync(new URL("../../server/db.ts", import.meta.url), "utf8");
+// Automatic notification wording lives in editable templates; db.ts selects them by key.
+const notificationTemplates = readFileSync(new URL("../../shared/notificationTemplates.ts", import.meta.url), "utf8");
+const signedInWorkspace = readFileSync(new URL("./lib/signedInWorkspace.ts", import.meta.url), "utf8");
 const customerDetail = readFileSync(new URL("./pages/CustomerDetail.tsx", import.meta.url), "utf8");
 const customersDashboard = readFileSync(new URL("./pages/CustomersDashboard.tsx", import.meta.url), "utf8");
 const accountPage = readFileSync(new URL("./pages/Account.tsx", import.meta.url), "utf8");
@@ -98,8 +101,8 @@ describe("النصوص العامة لمعاملاتي", () => {
     expect(pwaInstall).toContain('window.addEventListener("beforeinstallprompt"');
     expect(pwaInstall).toContain("await installPrompt.prompt()");
     expect(pwaInstall).toContain('variant?: "footer" | "showcase"');
-    expect(appShowcase).toContain("maalamati-my-requests-demo_0ac8bb82.mp4");
-    expect(appShowcase).toContain("maalamati-requests-scene-1_7c388ba9.png");
+    expect(appShowcase).toContain("maalamati-my-requests-demo_0ac8bb82_c4d30924.mp4");
+    expect(appShowcase).toContain("maalamati-requests-scene-1_7c388ba9_97e78440.png");
     expect(appShowcase).toContain('alt={isEnglish ? "My requests account overview" : "معاينة لوحة حساب طلباتي"}');
     expect(appShowcase).toContain("prefers-reduced-motion: reduce");
     expect(appShowcase).toContain("autoPlay");
@@ -247,7 +250,9 @@ describe("النصوص العامة لمعاملاتي", () => {
   it("يظهر اسم العميل المسجل في الهيدر ويتيح خروج جلسة الجوال", () => {
     expect(publicHeader).toContain("maalamati_customer_name");
     expect(publicHeader).toContain("maalamati_customer_access_token");
-    expect(publicHeader).toContain("!customerLoggedIn");
+    // A signed-in visitor sees their account entry instead of a second sign-in.
+    expect(publicHeader).toContain("workspace\n      ? { ar: workspaceLabel(workspace, false)");
+    expect(signedInWorkspace).toContain('href: "/customer-account"');
     expect(publicHeader).toContain("CustomerAccountMenu");
     expect(publicHeader).toContain("My requests");
     expect(publicHeader).toContain("طلباتي");
@@ -392,9 +397,12 @@ describe("النصوص العامة لمعاملاتي", () => {
     expect(teamWorkspace).toContain("markAllRead");
     expect(teamWorkspace).toContain("window.setInterval");
     expect(teamWorkspace).toContain("window.clearInterval");
-    expect(serverDb).toContain('type: "new_customer_request"');
+    expect(serverDb).toContain('"team.new_customer_request"');
+    expect(notificationTemplates).toContain('type: "new_customer_request"');
     expect(serverDb).toContain("requestId: input.requestId");
-    expect(serverDb).toContain("safeSummary");
+    // Phone/email are masked in both languages before the summary enters the template.
+    expect(serverDb).toContain('summarize("[بريد محجوب]", "[جوال محجوب]")');
+    expect(serverDb).toContain('summarize("[email hidden]", "[phone hidden]")');
     expect(serverDb).toContain("[جوال محجوب]");
     expect(serverDb).toContain("[بريد محجوب]");
     expect(serverDb).not.toContain("وصل طلب جديد إلى معاملاتي وهو بانتظار مراجعة الإدارة وإسناده");
@@ -403,7 +411,8 @@ describe("النصوص العامة لمعاملاتي", () => {
     expect(teamWorkspace).toContain("await markRead.mutateAsync({ notificationId: item.id })");
     expect(teamWorkspace).toContain("if (item.requestId) openRequestPage(item.requestId)");
     expect(teamWorkspace).toContain("!item.isRead && !openedNotificationIds.includes(item.id)");
-    expect(serverDb).toContain('type: "request_assigned"');
+    expect(serverDb).toContain('"team.request_assigned"');
+    expect(notificationTemplates).toContain('type: "request_assigned"');
   });
 
   it("يخفي إشعارات العميل بعد فتحها وينقل إلى الطلب ويظهر الجرس في الرئيسية للمسجل فقط", () => {
@@ -438,7 +447,8 @@ describe("النصوص العامة لمعاملاتي", () => {
     expect(customerQuotePanel).toContain("اعتماد العرض");
     expect(serverDb).toContain("isNull(transactionRequests.quoteSelectedAt)");
     expect(serverDb).toContain("affectedRows");
-    expect(serverDb).toContain('type: "quote_selected"');
+    expect(serverDb).toContain('"customer.quote_selected"');
+    expect(notificationTemplates).toContain('type: "quote_selected"');
     expect(serverDb).toContain("providerAcceptedAt");
     expect(serverDb).toContain('status: "declined"');
   });
@@ -467,11 +477,12 @@ describe("النصوص العامة لمعاملاتي", () => {
     expect(customerNotificationCenter).toContain("فتح الطلب");
     expect(customerNotificationCenter).toContain("markRead.mutate");
     expect(customerAccount).toContain("onOpenRequest");
-    expect(serverDb).toContain('type: "first_quote_received"');
-    expect(serverDb).toContain('title: "وصل أول عرض سعر"');
-    expect(serverDb).toContain('type: "quote_received"');
-    expect(serverDb).toContain('type: "provider_acceptance_expired"');
-    expect(serverDb).toContain('type: "request_update"');
+    expect(serverDb).toContain('"customer.first_quote_received"');
+    expect(notificationTemplates).toContain('type: "first_quote_received"');
+    expect(notificationTemplates).toContain('titleAr: "وصل أول عرض سعر"');
+    expect(notificationTemplates).toContain('type: "quote_received"');
+    expect(notificationTemplates).toContain('type: "provider_acceptance_expired"');
+    expect(notificationTemplates).toContain('type: "request_update"');
   });
 
   it("يرتب طلباتي حسب أحدث عرض ويعرض الشارة والصوت دون رابط سجل المتابعة", () => {
@@ -483,7 +494,7 @@ describe("النصوص العامة لمعاملاتي", () => {
     expect(customerAccount).not.toContain("Open tracking history");
     expect(customerNotificationCenter).toContain("maalamati_customer_quote_sound");
     expect(customerNotificationCenter).toContain("playQuoteNotificationTone");
-    expect(customerNotificationCenter).toContain("/manus-storage/maalamati-quote-alert_818d0073.wav");
+    expect(customerNotificationCenter).toContain("/manus-storage/maalamati-quote-alert_818d0073_ab955c73.wav");
     expect(customerNotificationCenter).toContain("new Audio(quoteSoundUrl)");
     expect(customerNotificationCenter).toContain("void audio.play()");
     expect(customerNotificationCenter).toContain('addEventListener("playing"');

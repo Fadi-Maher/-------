@@ -234,6 +234,8 @@ export const teamNotifications = mysqlTable("team_notifications", {
   type: varchar("type", { length: 64 }).notNull(),
   title: varchar("title", { length: 180 }).notNull(),
   message: varchar("message", { length: 500 }).notNull(),
+  titleEn: varchar("titleEn", { length: 180 }),
+  messageEn: varchar("messageEn", { length: 500 }),
   isRead: boolean("isRead").default(false).notNull(),
   readAt: timestamp("readAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -252,6 +254,8 @@ export const customerNotifications = mysqlTable("customer_notifications", {
   type: varchar("type", { length: 64 }).notNull(),
   title: varchar("title", { length: 180 }).notNull(),
   message: varchar("message", { length: 500 }).notNull(),
+  titleEn: varchar("titleEn", { length: 180 }),
+  messageEn: varchar("messageEn", { length: 500 }),
   isRead: boolean("isRead").default(false).notNull(),
   readAt: timestamp("readAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -262,6 +266,40 @@ export const customerNotifications = mysqlTable("customer_notifications", {
 
 export type CustomerNotification = typeof customerNotifications.$inferSelect;
 export type InsertCustomerNotification = typeof customerNotifications.$inferInsert;
+
+/** Owner edits to automatic notification texts. A missing row means the built-in default is used. */
+export const notificationTemplates = mysqlTable("notification_templates", {
+  templateKey: varchar("templateKey", { length: 80 }).primaryKey(),
+  titleAr: varchar("titleAr", { length: 180 }).notNull(),
+  messageAr: varchar("messageAr", { length: 500 }).notNull(),
+  titleEn: varchar("titleEn", { length: 180 }).notNull(),
+  messageEn: varchar("messageEn", { length: 500 }).notNull(),
+  updatedByUserId: int("updatedByUserId").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type NotificationTemplateRow = typeof notificationTemplates.$inferSelect;
+
+/** Public announcement bar shown at the top of the public website. Times are UTC milliseconds. */
+export const siteAnnouncements = mysqlTable("site_announcements", {
+  id: int("id").autoincrement().primaryKey(),
+  messageAr: varchar("messageAr", { length: 280 }).notNull(),
+  messageEn: varchar("messageEn", { length: 280 }).notNull(),
+  linkUrl: varchar("linkUrl", { length: 500 }),
+  linkLabelAr: varchar("linkLabelAr", { length: 40 }),
+  linkLabelEn: varchar("linkLabelEn", { length: 40 }),
+  tone: mysqlEnum("tone", ["info", "success", "warning"]).default("info").notNull(),
+  isActive: boolean("isActive").default(true).notNull(),
+  dismissible: boolean("dismissible").default(true).notNull(),
+  startsAt: bigint("startsAt", { mode: "number" }).notNull(),
+  endsAt: bigint("endsAt", { mode: "number" }),
+  createdByUserId: int("createdByUserId").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  activeWindowIndex: index("site_announcements_active_idx").on(table.isActive, table.startsAt),
+}));
+export type SiteAnnouncement = typeof siteAnnouncements.$inferSelect;
 
 export const appSettings = mysqlTable("app_settings", {
   id: int("id").primaryKey(),

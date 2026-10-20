@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "./_core/trpc";
 import {
+  getPhoneAccounts,
   getPhoneProfile,
   savePhoneProfile,
   type PhoneProfileRole,
@@ -21,6 +22,13 @@ const profileFields = {
 } as const;
 
 export const phoneProfileRouter = router({
+  accounts: publicProcedure
+    .input(z.object({ verificationToken }))
+    .query(({ input }) => {
+      // Only the OTP-signed ticket identifies the phone; nothing is created or linked.
+      const phone = verifyPhoneLoginTicket(input.verificationToken);
+      return getPhoneAccounts(phone);
+    }),
   get: publicProcedure
     .input(z.object({ verificationToken, role }))
     .query(({ input }) => {

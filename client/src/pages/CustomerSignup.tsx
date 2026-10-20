@@ -2,6 +2,7 @@ import { CustomerAuthForm } from "@/components/CustomerAuthForm";
 import { PublicHeader } from "@/components/PublicHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CheckCircle2, FileCheck2 } from "lucide-react";
+import { useRedirectSignedInVisitor } from "@/lib/signedInWorkspace";
 
 /**
  * Legacy /customer-signup route. The reusable form also powers modal entry points,
@@ -9,6 +10,8 @@ import { CheckCircle2, FileCheck2 } from "lucide-react";
  */
 export default function CustomerSignup() {
   const { isEnglish } = useLanguage();
+  const signedIn = useRedirectSignedInVisitor(isEnglish);
+  if (signedIn) return null;
 
   return (
     <div className="public-flat min-h-screen overflow-x-hidden bg-[#f5f9ff] text-[#102a43]" dir={isEnglish ? "ltr" : "rtl"}>

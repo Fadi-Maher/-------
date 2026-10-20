@@ -27,7 +27,7 @@ const englishMessages: Record<string, string> = {
 
 const quoteNotificationTypes = new Set(["first_quote_received", "quote_received"]);
 const quoteSoundPreferenceKey = "maalamati_customer_quote_sound";
-const quoteSoundUrl = "/manus-storage/maalamati-quote-alert_818d0073.wav";
+const quoteSoundUrl = "/manus-storage/maalamati-quote-alert_818d0073_ab955c73.wav";
 let quoteAudio: HTMLAudioElement | null = null;
 let quoteSoundPlayback: Promise<boolean> | null = null;
 
@@ -193,8 +193,8 @@ export function CustomerNotificationCenter({ accessToken, onNewNotification, onO
             <div className={`flex items-start gap-3 sm:items-center ${isEnglish ? "pr-8 sm:pr-0" : "pl-8 sm:pl-0"}`}>
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#0878f9] text-white"><BadgeDollarSign className="h-6 w-6" /></span>
               <div className="min-w-0 flex-1">
-                <p className="font-display text-base font-black text-[#17334f]">{isEnglish ? englishTitles.first_quote_received : firstQuote.title}</p>
-                <p className="mt-1 text-sm leading-6 text-[#60778f]">{isEnglish ? englishMessages.first_quote_received : firstQuote.message}</p>
+                <p className="font-display text-base font-black text-[#17334f]">{isEnglish ? firstQuote.titleEn ?? englishTitles.first_quote_received : firstQuote.title}</p>
+                <p className="mt-1 text-sm leading-6 text-[#60778f]">{isEnglish ? firstQuote.messageEn ?? englishMessages.first_quote_received : firstQuote.message}</p>
               </div>
               <Button type="button" onClick={() => acknowledgeFirstQuote(true)} className="hidden h-10 shrink-0 rounded-xl bg-[#0878f9] px-4 text-sm font-extrabold text-white hover:bg-[#0668d9] sm:inline-flex">
                 {isEnglish ? "Open request" : "فتح الطلب"}{isEnglish ? <ArrowRight className="ml-2 h-4 w-4" /> : <ArrowLeft className="mr-2 h-4 w-4" />}
@@ -257,8 +257,8 @@ export function CustomerNotificationCenter({ accessToken, onNewNotification, onO
               >
                 <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-[#0878f9]" />
                 <span>
-                  <span className="block text-sm font-extrabold text-[#17334f]">{isEnglish ? englishTitles[item.type] ?? item.title : item.title}</span>
-                  <span className="mt-1 block text-xs leading-6 text-[#60778f]">{isEnglish ? englishMessages[item.type] ?? item.message : item.message}</span>
+                  <span className="block text-sm font-extrabold text-[#17334f]">{isEnglish ? item.titleEn ?? englishTitles[item.type] ?? item.title : item.title}</span>
+                  <span className="mt-1 block text-xs leading-6 text-[#60778f]">{isEnglish ? item.messageEn ?? englishMessages[item.type] ?? item.message : item.message}</span>
                   <time className="mt-2 block text-[11px] font-bold text-[#8a9bad]">{new Date(item.createdAt).toLocaleString(isEnglish ? "en-US" : "ar-SA")}</time>
                 </span>
               </button>

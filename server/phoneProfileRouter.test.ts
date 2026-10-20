@@ -7,12 +7,14 @@ const mocks = vi.hoisted(() => ({
   verifyTicket: vi.fn(),
   getProfile: vi.fn(),
   saveProfile: vi.fn(),
+  getAccounts: vi.fn(),
 }));
 
 vi.mock("./phoneLoginTicket", () => ({
   verifyPhoneLoginTicket: mocks.verifyTicket,
 }));
 vi.mock("./phoneProfileDb", () => ({
+  getPhoneAccounts: mocks.getAccounts,
   getPhoneProfile: mocks.getProfile,
   savePhoneProfile: mocks.saveProfile,
 }));
@@ -55,6 +57,32 @@ beforeEach(() => {
 });
 
 describe("phoneProfile router", () => {
+  it("looks up existing accounts only for the OTP-verified phone", async () => {
+    mocks.getAccounts.mockResolvedValue({
+      customer: { fullName: "عميل مسجل" },
+      activeAgent: null,
+    });
+    const caller = phoneProfileRouter.createCaller(context());
+    await expect(
+      caller.accounts({
+        verificationToken: "valid-ticket",
+        phone: "0599999999",
+      } as never)
+    ).resolves.toEqual({ customer: { fullName: "عميل مسجل" }, activeAgent: null });
+    expect(mocks.verifyTicket).toHaveBeenCalledWith("valid-ticket");
+    expect(mocks.getAccounts).toHaveBeenCalledWith(phone);
+    expect(mocks.getAccounts).not.toHaveBeenCalledWith("0599999999");
+  });
+  it("never reveals accounts for an invalid verification ticket", async () => {
+    mocks.verifyTicket.mockImplementation(() => {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "invalid" });
+    });
+    const caller = phoneProfileRouter.createCaller(context());
+    await expect(
+      caller.accounts({ verificationToken: "forged-ticket" })
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    expect(mocks.getAccounts).not.toHaveBeenCalled();
+  });
   it("verifies the ticket before profile reads and uses no caller-provided phone", async () => {
     const caller = phoneProfileRouter.createCaller(context("admin"));
 

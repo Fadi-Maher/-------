@@ -50,11 +50,11 @@ const featuredServices = [
 ];
 
 const servicePlatforms = [
-  { nameAr: "أبشر", nameEn: "Absher", logo: "/manus-storage/absher_220430b7.jpg", href: "https://www.absher.sa" },
-  { nameAr: "ناجز", nameEn: "Najiz", logo: "/manus-storage/najiz_d82c1ae6.png", href: "https://najiz.sa" },
-  { nameAr: "بلدي", nameEn: "Balady", logo: "/manus-storage/balady_635d333c.jpg", href: "https://balady.gov.sa" },
-  { nameAr: "قوى", nameEn: "Qiwa", logo: "/manus-storage/qiwa_b2b31845.jpg", href: "https://qiwa.sa" },
-  { nameAr: "هيئة الحكومة الرقمية", nameEn: "Digital Government Authority", logo: "/manus-storage/dga_f9e2226f.png", href: "https://dga.gov.sa" },
+  { nameAr: "أبشر", nameEn: "Absher", logo: "/manus-storage/absher_220430b7_f3bb0555.jpg", href: "https://www.absher.sa" },
+  { nameAr: "ناجز", nameEn: "Najiz", logo: "/manus-storage/najiz_d82c1ae6_90d34677.png", href: "https://najiz.sa" },
+  { nameAr: "بلدي", nameEn: "Balady", logo: "/manus-storage/balady_635d333c_6a1cd43d.jpg", href: "https://balady.gov.sa" },
+  { nameAr: "قوى", nameEn: "Qiwa", logo: "/manus-storage/qiwa_b2b31845_420bf070.jpg", href: "https://qiwa.sa" },
+  { nameAr: "هيئة الحكومة الرقمية", nameEn: "Digital Government Authority", logo: "/manus-storage/dga_f9e2226f_ce53f547.png", href: "https://dga.gov.sa" },
 ];
 
 function ServicePlatforms({ isEnglish }: { isEnglish: boolean }) {
@@ -324,7 +324,7 @@ function HomeEnglish() {
             <div className="relative mx-auto h-[360px] w-full max-w-[470px] sm:h-[430px] lg:h-[455px]">
               <div className="absolute inset-x-4 bottom-0 top-8 rounded-[2.25rem] bg-[linear-gradient(145deg,#d9effb,#f8fcff)]" />
               <div className="absolute left-7 top-11 h-28 w-28 rounded-[2rem] bg-white/45 rotate-[-18deg]" />
-              <img src="/manus-storage/maalamati-black-abaya-hero-a_7b0c4efb.png" alt="An elegant Saudi professional wearing a black abaya and holding a document folder" className="absolute bottom-0 left-1/2 z-10 h-[98%] w-auto max-w-[98%] -translate-x-1/2 object-contain object-bottom" />
+              <img src="/manus-storage/maalamati-black-abaya-hero-a_7b0c4efb_0904de2d.png" alt="An elegant Saudi professional wearing a black abaya and holding a document folder" className="absolute bottom-0 left-1/2 z-10 h-[98%] w-auto max-w-[98%] -translate-x-1/2 object-contain object-bottom" />
             </div>
           </div>
         </section>
@@ -440,7 +440,7 @@ function HomeArabic() {
             <div className="relative mx-auto h-[360px] w-full max-w-[470px] sm:h-[430px] lg:h-[455px]">
               <div className="absolute inset-x-4 bottom-0 top-8 rounded-[2.25rem] bg-[linear-gradient(145deg,#d9effb,#f8fcff)]" />
               <div className="absolute left-7 top-11 h-28 w-28 rounded-[2rem] bg-white/45 rotate-[-18deg]" />
-              <img src="/manus-storage/maalamati-black-abaya-hero-a_7b0c4efb.png" alt="سيدة سعودية أنيقة بعباية سوداء تحمل حافظة مستندات" className="absolute bottom-0 left-1/2 z-10 h-[98%] w-auto max-w-[98%] -translate-x-1/2 object-contain object-bottom" />
+              <img src="/manus-storage/maalamati-black-abaya-hero-a_7b0c4efb_0904de2d.png" alt="سيدة سعودية أنيقة بعباية سوداء تحمل حافظة مستندات" className="absolute bottom-0 left-1/2 z-10 h-[98%] w-auto max-w-[98%] -translate-x-1/2 object-contain object-bottom" />
             </div>
           </div>
         </section>
