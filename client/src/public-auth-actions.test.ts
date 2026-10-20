@@ -113,6 +113,7 @@ vi.mock("./components/AgentJoinForm", () => ({
 import { PublicHeader } from "./components/PublicHeader";
 import { AuthModal } from "./components/AuthModal";
 import { openAuthModal } from "./lib/authFlow";
+import { AGENT_ACCESS_COPY } from "./lib/agentAccessCopy";
 
 const baseProfile: ProfileResult = {
   profile: { fullName: "Nora Existing", email: "nora@example.test" },
@@ -455,8 +456,16 @@ describe("إجراءات الدخول العامة والتحقق المشترك
     await user.click(authRows()[1].getByRole("link", { name: "Agent sign-in" }));
     const dialog = await screen.findByRole("dialog");
     expect(
-      within(dialog).getByRole("heading", { name: "Agent sign-in" })
+      within(dialog).getByRole("heading", { name: AGENT_ACCESS_COPY.en.title })
     ).toBeTruthy();
+    // Same wording as the direct /agent-login page, including the join-request note.
+    // Visible intro plus the screen-reader description of the agent window.
+    expect(within(dialog).getAllByText(AGENT_ACCESS_COPY.en.lead)).toHaveLength(2);
+    expect(
+      document.getElementById(dialog.getAttribute("aria-describedby") ?? "")?.textContent
+    ).toBe(AGENT_ACCESS_COPY.en.lead);
+    expect(within(dialog).getByText(AGENT_ACCESS_COPY.en.joinNote)).toBeTruthy();
+    expect(within(dialog).getByText(AGENT_ACCESS_COPY.en.demo)).toBeTruthy();
     await user.type(
       within(dialog).getByRole("textbox", { name: "Mobile number" }),
       "0500000098"

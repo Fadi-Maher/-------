@@ -1,6 +1,6 @@
 import { APP_BRAND } from "@/lib/brand";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import React, { useState } from "react";
 
 const OPTIMIZED_SRCSET = `${APP_BRAND.icon128Webp} 128w, ${APP_BRAND.icon192Webp} 192w, ${APP_BRAND.icon512} 512w`;
 const ORIGINAL_SRCSET = `${APP_BRAND.icon192} 1x, ${APP_BRAND.icon512} 2x`;

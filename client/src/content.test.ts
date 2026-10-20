@@ -37,7 +37,7 @@ const phoneProfileRouter = readFileSync(new URL("../../server/phoneProfileRouter
 const agentDocumentsRouter = readFileSync(new URL("../../server/agentApplicationDocumentsRouter.ts", import.meta.url), "utf8");
 const agentDocumentsContract = readFileSync(new URL("../../shared/agentDocuments.ts", import.meta.url), "utf8");
 const accessLogin = readFileSync(new URL("./pages/AccessLogin.tsx", import.meta.url), "utf8");
-const agentLogin = ["./pages/AgentLogin.tsx", "./components/AgentAuthForm.tsx"].map(path => readFileSync(new URL(path, import.meta.url), "utf8")).join("\n");
+const agentLogin = ["./pages/AgentLogin.tsx", "./lib/agentAccessCopy.ts"].map(path => readFileSync(new URL(path, import.meta.url), "utf8")).join("\n");
 const customerQuotePanel = readFileSync(new URL("./components/CustomerQuotePanel.tsx", import.meta.url), "utf8");
 const deadlineIndicator = readFileSync(new URL("./components/DeadlineIndicator.tsx", import.meta.url), "utf8");
 const requestConversation = readFileSync(new URL("./components/RequestConversation.tsx", import.meta.url), "utf8");
@@ -610,8 +610,12 @@ describe("النصوص العامة لمعاملاتي", () => {
     expect(authModal).toContain('"Customer" : "عميل"');
     expect(authModal).toContain("معقب");
     expect(authModal).not.toContain("href=\"/team-login\"");
-    expect(agentLogin).toContain("agentPhoneDemo.useMutation");
-    expect(agentLogin).toContain("رمز التحقق التجريبي: 123456");
+    // /agent-login opens the same OTP pop-up and shares its wording; no separate demo login.
+    expect(agentLogin).toContain('openAuthModal({ intent: "signin", audience: "agent"');
+    expect(agentLogin).toContain("agentAccessCopy(isEnglish)");
+    expect(agentLogin).toContain('title: "دخول المعقبين"');
+    expect(agentLogin).not.toContain("agentPhoneDemo");
+    expect(authModal).toContain("agentCopy.joinNote");
     expect(employeesDashboard).toContain("رقم جوال المعقب");
     expect(employeesDashboard).toContain("الموظفون يضيفهم المالك فقط");
   });

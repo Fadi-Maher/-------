@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Check,
+  FileText,
   Smartphone,
   UserRound,
   X,
@@ -28,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/BrandMark";
 import { normalizeSaudiPhone } from "@/components/CustomerAuthForm";
+import { agentAccessCopy } from "@/lib/agentAccessCopy";
 import { AgentJoinForm } from "@/components/AgentJoinForm";
 import {
   CompletePhoneProfile,
@@ -150,6 +152,8 @@ export function AuthModal() {
     return true;
   };
   const language = isEnglish ? ("en" as const) : ("ar" as const);
+  const agentCopy = agentAccessCopy(isEnglish);
+  const isAgentIntent = requestedAudience === "agent";
 
   useEffect(() => {
     const onOpen = (event: Event) => {
@@ -609,10 +613,8 @@ export function AuthModal() {
   };
   const title =
     phase === "phone"
-      ? requestedAudience === "agent"
-        ? isEnglish
-          ? "Agent sign-in"
-          : "دخول المعقبين"
+      ? isAgentIntent
+        ? agentCopy.title
         : isEnglish
           ? "Continue with your mobile"
           : "الدخول برقم الجوال"
@@ -706,7 +708,9 @@ export function AuthModal() {
             </button>
           </div>
           <DialogDescription className="sr-only">
-            {isEnglish
+            {isAgentIntent
+              ? agentCopy.lead
+              : isEnglish
               ? "Enter your mobile and verify the code. Registered accounts open directly; new mobiles choose Customer or Agent. New agents submit a request for admin approval."
               : "أدخل رقم الجوال وتحقق من الرمز. الحساب المسجل يُفتح مباشرة، والرقم الجديد يختار عميلًا أو معقبًا. يرسل المعقب الجديد طلبًا لموافقة الإدارة."}
           </DialogDescription>
@@ -715,10 +719,7 @@ export function AuthModal() {
           aria-label={isEnglish ? "Account access steps" : "خطوات الدخول"}
           className="grid grid-cols-4 gap-1 rounded-2xl border border-[#e3eef9] bg-[#f5f9fd] p-1.5 sm:gap-1.5 sm:p-2"
         >
-          {(isEnglish
-            ? ["Mobile", "Code", "Type", "Profile"]
-            : ["الجوال", "الرمز", "النوع", "البيانات"]
-          ).map((label, index) => (
+          {agentCopy.steps.map(step => step.label).map((label, index) => (
             <li
               key={label}
               aria-current={index === stepIndex ? "step" : undefined}
@@ -749,13 +750,27 @@ export function AuthModal() {
                   className="h-5 w-5 text-[#0878f9]"
                   aria-hidden="true"
                 />
-                {isEnglish ? "Enter your mobile number" : "أدخل رقم جوالك"}
+                {agentCopy.phoneHeading}
               </h2>
               <p className="mt-2 text-sm leading-7 text-[#536e88]">
-                {isEnglish
-                  ? "One entry for new and existing accounts. If your mobile is already registered, you go straight to your account after the code."
-                  : "مدخل واحد للحساب الجديد أو الموجود. إذا كان رقمك مسجلًا تدخل مباشرة إلى حسابك بعد الرمز."}
+                {isAgentIntent
+                  ? agentCopy.lead
+                  : isEnglish
+                    ? "One entry for new and existing accounts. If your mobile is already registered, you go straight to your account after the code."
+                    : "مدخل واحد للحساب الجديد أو الموجود. إذا كان رقمك مسجلًا تدخل مباشرة إلى حسابك بعد الرمز."}
               </p>
+              {isAgentIntent ? (
+                <p
+                  data-agent-join-note
+                  className="mt-3 flex items-start gap-2 rounded-xl border border-[#d7e8fa] bg-[#f5faff] px-3 py-2 text-xs font-bold leading-6 text-[#31516e]"
+                >
+                  <FileText
+                    className="mt-1 h-4 w-4 shrink-0 text-[#0878f9]"
+                    aria-hidden="true"
+                  />
+                  {agentCopy.joinNote}
+                </p>
+              ) : null}
             </div>
             <div>
               <div className="flex items-center justify-between gap-2">
@@ -832,9 +847,7 @@ export function AuthModal() {
               )}
             </Button>
             <p className="rounded-xl bg-[#f4f9ff] px-3 py-2 text-xs leading-6 text-[#536e88]">
-              {isEnglish
-                ? "Demo mode: the code is displayed in the window; no SMS is sent."
-                : "وضع تجريبي: يظهر الرمز داخل النافذة، ولا تُرسل رسالة SMS."}
+              {agentCopy.demo}
             </p>
           </form>
         ) : phase === "otp" && challenge ? (
