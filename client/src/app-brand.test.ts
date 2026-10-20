@@ -11,6 +11,7 @@ const ownerLogin = readSource("./pages/OwnerLogin.tsx");
 const customerSignup = readSource("./pages/CustomerSignup.tsx");
 const pwaInstall = readSource("./components/PwaInstall.tsx");
 const assistantUi = readSource("./components/MaalamatiAssistant.tsx");
+const assistantAvatar = readSource("./components/AssistantAvatar.tsx");
 const assistantServer = readSource("../../server/publicAssistant.ts");
 const exportHelpers = readSource("./lib/dataExport.ts");
 const customerSession = readSource("./lib/customerSession.ts");
@@ -87,7 +88,9 @@ describe("Maalamati Care brand regression", () => {
       expect(worker).toContain('const CACHE_NAME = "maalamati-shell-v6"');
       expect(worker).toContain('/manus-storage/maalamati-care-icon-192_6fc97013.png');
     }
-    expect(assistantUi).toContain('/manus-storage/maalamati-assistant-avatar_1d2f6239.png');
+    expect(assistantUi.match(/<AssistantAvatar\s*\/>/g)).toHaveLength(2);
+    expect(assistantAvatar).toContain('/manus-storage/maalamati-assistant-avatar-original_dac6bf34.webp');
+    expect(assistantUi).not.toContain('/manus-storage/maalamati-assistant-avatar_1d2f6239.png');
     expect(notificationCenter).toContain('/manus-storage/maalamati-quote-alert_818d0073.wav');
     expect(appShowcase).toContain('/manus-storage/maalamati-my-requests-demo_0ac8bb82.mp4');
     expect(appShowcase).toContain('/manus-storage/maalamati-requests-scene-1_7c388ba9.png');

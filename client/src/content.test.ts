@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 const homePage = readFileSync(new URL("./pages/Home.tsx", import.meta.url), "utf8");
 const supportButton = readFileSync(new URL("./components/WhatsAppSupportButton.tsx", import.meta.url), "utf8");
 const maalamatiAssistant = readFileSync(new URL("./components/MaalamatiAssistant.tsx", import.meta.url), "utf8");
+const assistantAvatar = readFileSync(new URL("./components/AssistantAvatar.tsx", import.meta.url), "utf8");
 const publicFooter = readFileSync(new URL("./components/PublicFooter.tsx", import.meta.url), "utf8");
 const aboutPage = readFileSync(new URL("./pages/About.tsx", import.meta.url), "utf8");
 const contactPage = readFileSync(new URL("./pages/Contact.tsx", import.meta.url), "utf8");
@@ -55,7 +56,9 @@ describe("النصوص العامة لمعاملاتي", () => {
     expect(maalamatiAssistant).toContain("لا تشارك رقم الجوال أو الهوية أو رمز التحقق");
     expect(maalamatiAssistant).toContain("wa.me");
     expect(appRoutes).toContain("<MaalamatiAssistant />");
-    expect(maalamatiAssistant).toContain("maalamati-assistant-avatar_1d2f6239.png");
+    expect(maalamatiAssistant.match(/<AssistantAvatar\s*\/>/g)).toHaveLength(2);
+    expect(assistantAvatar).toContain("maalamati-assistant-avatar-original_dac6bf34.webp");
+    expect(assistantAvatar).toContain('data-testid="assistant-avatar-fallback"');
     expect(maalamatiAssistant).toContain("هل توافق على حفظ هذه المحادثة؟");
     expect(maalamatiAssistant).toContain("Save this conversation?");
     expect(maalamatiAssistant).toContain("المتابعة دون حفظ");

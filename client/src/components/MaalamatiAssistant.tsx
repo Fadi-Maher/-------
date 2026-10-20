@@ -1,11 +1,11 @@
 import { AIChatBox, type Message } from "@/components/AIChatBox";
+import { AssistantAvatar } from "@/components/AssistantAvatar";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { trpc } from "@/lib/trpc";
 import { CheckCircle2, Database, ExternalLink, MessageCircle, ShieldCheck, Sparkles, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 
-const ASSISTANT_AVATAR_URL = "/manus-storage/maalamati-assistant-avatar_1d2f6239.png";
 const CONSENT_STORAGE_KEY = "maalamati-assistant-history-consent";
 const SESSION_STORAGE_KEY = "maalamati-assistant-history-session";
 const EMPTY_PUBLIC_ID = "00000000-0000-4000-8000-000000000000";
@@ -192,7 +192,7 @@ export function MaalamatiAssistant() {
             <div className="relative flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
                 <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full border-4 border-white/25 bg-white shadow-lg">
-                  <img src={ASSISTANT_AVATAR_URL} alt="" className="h-full w-full object-cover" />
+                  <AssistantAvatar />
                 </span>
                 <div className="min-w-0">
                   <h2 className="font-display truncate text-base font-black">{copy.title}</h2>
@@ -256,7 +256,7 @@ export function MaalamatiAssistant() {
         </section>
       ) : (
         <button type="button" onClick={() => setIsOpen(true)} aria-label={copy.open} className="assistant-launcher group flex items-center gap-3 rounded-full bg-[linear-gradient(115deg,#0878f9,#6b35ff)] p-2 text-white shadow-[0_16px_35px_rgba(64,70,220,.30)] transition-transform duration-200 hover:-translate-y-1 active:scale-[.97] sm:pe-4">
-          <span className="grid h-11 w-11 place-items-center overflow-hidden rounded-full border-2 border-white/35 bg-white"><img src={ASSISTANT_AVATAR_URL} alt="" className="h-full w-full object-cover" /></span>
+          <span className="grid h-11 w-11 place-items-center overflow-hidden rounded-full border-2 border-white/35 bg-white"><AssistantAvatar /></span>
           <span className="hidden text-sm font-black sm:inline">{copy.launcher}</span>
           <Sparkles className="hidden h-4 w-4 text-[#d8ff4f] sm:block" />
         </button>
