@@ -126,6 +126,72 @@ describe("CustomerAuthForm", () => {
     expect(mocks.verifyPhone).toHaveBeenCalledWith({ phone: "0500000000", code: "123456" });
   });
 
+  it("starts new-customer details immediately from a normalized phone and verified token without mount mutations", async () => {
+    const user = userEvent.setup();
+    mocks.registerCustomer.mockResolvedValue({ id: 8, fullName: "Layla New", phone: "0500000000", email: "layla@example.test" });
+
+    render(h(CustomerAuthForm, {
+      variant: "modal",
+      initialPhone: "٠٥٠٠٠٠٠٠٠٠",
+      verifiedAccessToken: accessToken,
+    }));
+
+    expect(screen.getByRole("heading", { name: "Complete your customer profile." })).toBeTruthy();
+    expect(screen.queryByLabelText("Enter the six-digit demo code")).toBeNull();
+    expect(mocks.verifyPhone).not.toHaveBeenCalled();
+    expect(mocks.findCustomer).not.toHaveBeenCalled();
+    expect(mocks.registerCustomer).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText("Full name"), "Layla New");
+    await user.type(screen.getByLabelText("Email address"), "layla@example.test");
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: "Create customer account" }));
+
+    await waitFor(() => expect(mocks.registerCustomer).toHaveBeenCalledWith(expect.objectContaining({
+      fullName: "Layla New",
+      phone: "0500000000",
+      email: "layla@example.test",
+      accessToken,
+      termsAccepted: true,
+    })));
+    expect(mocks.verifyPhone).not.toHaveBeenCalled();
+    expect(mocks.findCustomer).not.toHaveBeenCalled();
+  });
+
+  it("does not enter details from a verified token when no valid initial phone is supplied", () => {
+    render(h(CustomerAuthForm, { variant: "modal", verifiedAccessToken: accessToken }));
+
+    expect(screen.getByRole("heading", { name: "Sign in with your mobile" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Complete your customer profile." })).toBeNull();
+    expect(screen.queryByLabelText("Enter the six-digit demo code")).toBeNull();
+    expect(mocks.verifyPhone).not.toHaveBeenCalled();
+    expect(mocks.findCustomer).not.toHaveBeenCalled();
+    expect(mocks.registerCustomer).not.toHaveBeenCalled();
+  });
+
+  it("forwards a supplied token to registration but does not bypass a server rejection for stale phone authority", async () => {
+    const user = userEvent.setup();
+    mocks.registerCustomer.mockRejectedValue(new Error("Phone access does not match"));
+
+    render(h(CustomerAuthForm, {
+      variant: "modal",
+      initialPhone: "0500000001",
+      verifiedAccessToken: accessToken,
+    }));
+    await user.type(screen.getByLabelText("Full name"), "Layla New");
+    await user.type(screen.getByLabelText("Email address"), "layla@example.test");
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: "Create customer account" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Phone access does not match");
+    expect(mocks.registerCustomer).toHaveBeenCalledWith(expect.objectContaining({
+      phone: "0500000001",
+      accessToken,
+    }));
+    expect(mocks.navigate).not.toHaveBeenCalled();
+    expect(localStorage.getItem("maalamati_customer_access_token")).toBeNull();
+  });
+
   it("delegates changing a seeded phone to the modal owner instead of returning to phone entry", async () => {
     const onChangePhone = vi.fn();
     render(h(CustomerAuthForm, { variant: "modal", initialPhone: "0500000000", onChangePhone }));

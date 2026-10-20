@@ -113,7 +113,7 @@ function DashboardLayoutContent({ children }: DashboardLayoutContentProps) {
   const isMobile = useIsMobile();
 
   return (
-    <div className="flex min-h-svh w-full">
+    <div className="flex min-h-svh w-full" dir="rtl">
         <Sidebar
           side="right"
           collapsible="icon"

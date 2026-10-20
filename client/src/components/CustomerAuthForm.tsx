@@ -26,6 +26,8 @@ export type CustomerAuthFormProps = {
   variant?: "modal" | "page";
   onBusyChange?: (busy: boolean) => void;
   initialPhone?: string;
+  /** A server-issued phone access token supplied after a completed parent OTP flow. */
+  verifiedAccessToken?: string;
   onChangePhone?: () => void;
 };
 
@@ -54,22 +56,26 @@ export function CustomerAuthForm({
   variant = "page",
   onBusyChange,
   initialPhone,
+  verifiedAccessToken,
   onChangePhone,
 }: CustomerAuthFormProps) {
   const { isEnglish } = useLanguage();
   const [, navigate] = useLocation();
   const fieldId = useId();
   const normalizedInitialPhone = normalizeSaudiPhone(initialPhone ?? "");
-  // A valid phone passed from the account chooser starts at OTP entry. State
-  // initializers are deliberately side-effect-free: verification happens only
-  // after the person explicitly submits the code.
-  const [step, setStep] = useState<"phone" | "verify" | "details">(() => normalizedInitialPhone ? "verify" : "phone");
+  // A parent may hand off a real, non-empty server-issued token only alongside
+  // a normalized phone. This selects the details UI without treating the token
+  // as client-side authorization: registration still validates it on the server.
+  const initialVerifiedAccessToken = normalizedInitialPhone && verifiedAccessToken?.trim() ? verifiedAccessToken : "";
+  // State initializers are deliberately side-effect-free: neither verification
+  // nor customer lookup runs when the component mounts.
+  const [step, setStep] = useState<"phone" | "verify" | "details">(() => initialVerifiedAccessToken ? "details" : normalizedInitialPhone ? "verify" : "phone");
   const [phone, setPhone] = useState(() => normalizedInitialPhone ?? "");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [code, setCode] = useState("");
-  const [accessToken, setAccessToken] = useState("");
+  const [accessToken, setAccessToken] = useState(() => initialVerifiedAccessToken);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submittingRef = useRef(false);
@@ -112,6 +118,7 @@ export function CustomerAuthForm({
         termsLink: "Terms and Conditions",
         refundLink: "Refund and Cancellation Policy",
         creatingError: "We could not create the account right now.",
+        detailsError: "Enter your full name and a valid email address.",
         checking: "Checking…",
         creating: "Creating account…",
         demo: "Demo only — no real WhatsApp message was sent.",
@@ -143,6 +150,7 @@ export function CustomerAuthForm({
         termsLink: "الشروط والأحكام",
         refundLink: "سياسة الاسترداد والإلغاء",
         creatingError: "تعذر إنشاء الحساب الآن.",
+        detailsError: "أدخل اسمك الكامل وبريدك الإلكتروني الصحيح.",
         checking: "جارٍ التحقق…",
         creating: "جارٍ إنشاء الحساب…",
         demo: "للاختبار فقط — لم تُرسل أي رسالة واتساب حقيقية.",
@@ -218,14 +226,20 @@ export function CustomerAuthForm({
       setError(copy.termsError);
       return;
     }
+    const normalizedName = fullName.trim();
+    const normalizedEmail = email.trim();
+    if (normalizedName.length < 2 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setError(copy.detailsError);
+      return;
+    }
     if (!beginSubmission()) return;
 
     setError("");
     try {
       const customer = await registerCustomer.mutateAsync({
-        fullName: fullName.trim(),
+        fullName: normalizedName,
         phone,
-        email: email.trim(),
+        email: normalizedEmail,
         accessToken,
         termsAccepted: true,
         termsVersion: CURRENT_TERMS_VERSION,

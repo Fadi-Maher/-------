@@ -1,4 +1,5 @@
 import DashboardLayout from "@/components/DashboardLayout";
+import { AgentApplicationsPanel } from "@/components/AgentApplicationsPanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -99,6 +100,8 @@ export default function EmployeesDashboard() {
           </div>
         </div>
 
+        {isAgents ? <AgentApplicationsPanel /> : null}
+
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           <article className="rounded-2xl border border-[#cde3fa] bg-white p-5"><UserRoundCheck className="h-5 w-5 text-[#0878f9]" /><p className="mt-3 text-xs font-bold text-[#60778f]">إجمالي الحسابات</p><p className="mt-1 text-3xl font-black">{visibleAccounts.length}</p></article>
           <article className="rounded-2xl border border-[#d8edcf] bg-white p-5"><ShieldCheck className="h-5 w-5 text-[#4c9a43]" /><p className="mt-3 text-xs font-bold text-[#60778f]">الحسابات المفعلة</p><p className="mt-1 text-3xl font-black text-[#275c2a]">{visibleAccounts.filter((account) => account.isActive).length}</p></article>
@@ -119,7 +122,7 @@ export default function EmployeesDashboard() {
             ))}
           </div>
         ) : (
-          <div className="mt-6 grid min-h-64 place-items-center rounded-3xl border border-dashed border-[#b7dbff] bg-white text-center"><div>{isAgents ? <Phone className="mx-auto h-11 w-11 text-[#87bff4]" /> : <BriefcaseBusiness className="mx-auto h-11 w-11 text-[#87bff4]" />}<h2 className="font-display mt-4 text-lg font-black">{isAgents ? "لا توجد حسابات معقبين" : "لا توجد حسابات موظفين"}</h2><p className="mt-2 text-sm text-[#70859b]">{isAgents ? "أضف رقم جوال المعقب من هنا؛ لا يوجد تسجيل عام للمعقبين." : "أضف الموظف ببريد العمل من لوحة المالك."}</p></div></div>
+          <div className="mt-6 grid min-h-64 place-items-center rounded-3xl border border-dashed border-[#b7dbff] bg-white text-center"><div>{isAgents ? <Phone className="mx-auto h-11 w-11 text-[#87bff4]" /> : <BriefcaseBusiness className="mx-auto h-11 w-11 text-[#87bff4]" />}<h2 className="font-display mt-4 text-lg font-black">{isAgents ? "لا توجد حسابات معقبين" : "لا توجد حسابات موظفين"}</h2><p className="mt-2 text-sm text-[#70859b]">{isAgents ? "طلبات الانضمام بانتظار موافقة الإدارة." : "أضف الموظف ببريد العمل من لوحة المالك."}</p></div></div>
         )}
       </main>
     </DashboardLayout>

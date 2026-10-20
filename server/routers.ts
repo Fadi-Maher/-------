@@ -77,8 +77,9 @@ import { PUSH_PUBLIC_KEY } from "./pushPublic";
 import { storagePut } from "./storage";
 import { answerPublicAssistant, redactAssistantMessage } from "./publicAssistant";
 import { agentFinanceRouter } from "./agentFinanceRouter";
+import { phoneAuthRouter } from "./phoneAuthRouter";
+import { agentApplicationsRouter } from "./agentApplicationsRouter";
 import { listTeamPrivateMessages } from "./teamMessages";
-
 const requestStatuses = ["received", "in_review", "in_progress", "completed"] as const;
 const requestPriorities = ["low", "normal", "high", "urgent"] as const;
 const assistantMessageInput = z.object({
@@ -273,6 +274,8 @@ export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   agentFinance: agentFinanceRouter,
+  phoneAuth: phoneAuthRouter,
+  agentApplications: agentApplicationsRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {

@@ -59,8 +59,10 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 
   try {
     const normalizedEmail = user.email?.trim().toLowerCase() || null;
+    // Agent application emails are contact details, not an OAuth identity proof.
+    // Agents sign in through their approved phone-bound identity; only employees link by work email.
     const invitedStaff = normalizedEmail
-      ? (await db.select().from(staffAccounts).where(eq(staffAccounts.email, normalizedEmail)).limit(1))[0]
+      ? (await db.select().from(staffAccounts).where(and(eq(staffAccounts.email, normalizedEmail), eq(staffAccounts.role, "employee"))).limit(1))[0]
       : undefined;
     const values: InsertUser = {
       openId: user.openId,

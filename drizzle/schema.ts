@@ -47,6 +47,44 @@ export const staffAccounts = mysqlTable("staff_accounts", {
 export type StaffAccount = typeof staffAccounts.$inferSelect;
 export type InsertStaffAccount = typeof staffAccounts.$inferInsert;
 
+export const phoneOtpChallenges = mysqlTable("phone_otp_challenges", {
+  id: int("id").autoincrement().primaryKey(),
+  challengeId: varchar("challengeId", { length: 36 }).notNull(),
+  phone: varchar("phone", { length: 40 }).notNull(),
+  codeHash: varchar("codeHash", { length: 64 }).notNull(),
+  expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
+  resendAvailableAt: bigint("resendAvailableAt", { mode: "number" }).notNull(),
+  attemptCount: int("attemptCount").default(0).notNull(),
+  sendCount: int("sendCount").default(1).notNull(),
+  windowStartedAt: bigint("windowStartedAt", { mode: "number" }).notNull(),
+  verifiedAt: bigint("verifiedAt", { mode: "number" }),
+  verifiedClientKey: varchar("verifiedClientKey", { length: 36 }),
+}, table => ({
+  phoneUnique: uniqueIndex("phone_otp_phone_unique").on(table.phone),
+  challengeUnique: uniqueIndex("phone_otp_challenge_unique").on(table.challengeId),
+}));
+
+export const agentApplications = mysqlTable("agent_applications", {
+  id: int("id").autoincrement().primaryKey(),
+  phone: varchar("phone", { length: 40 }).notNull(),
+  fullName: varchar("fullName", { length: 160 }).notNull(),
+  email: varchar("email", { length: 320 }).notNull(),
+  city: varchar("city", { length: 120 }).notNull(),
+  specialty: varchar("specialty", { length: 160 }).notNull(),
+  experienceYears: int("experienceYears").notNull(),
+  notes: varchar("notes", { length: 1000 }),
+  consentedAt: bigint("consentedAt", { mode: "number" }).notNull(),
+  status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("pending").notNull(),
+  createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  reviewedAt: bigint("reviewedAt", { mode: "number" }),
+  reviewedByUserId: int("reviewedByUserId").references(() => users.id, { onDelete: "set null" }),
+  reviewNote: varchar("reviewNote", { length: 500 }),
+  activatedStaffAccountId: int("activatedStaffAccountId").references(() => staffAccounts.id, { onDelete: "set null" }),
+}, table => ({
+  phoneUnique: uniqueIndex("agent_applications_phone_unique").on(table.phone),
+  statusCreatedIndex: index("agent_applications_status_created_idx").on(table.status, table.createdAt),
+}));
+
 export const customers = mysqlTable("customers", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").references(() => users.id, { onDelete: "set null" }).unique(),

@@ -30,6 +30,14 @@ export function saveCustomerSession(session: CustomerSession, storage?: StorageW
   if (typeof window !== "undefined") window.dispatchEvent(new Event(CUSTOMER_SESSION_EVENT));
 }
 
+export function clearCustomerSession(storage?: Pick<Storage, "removeItem">) {
+  const target = storage ?? window.localStorage;
+  target.removeItem(keys.name);
+  target.removeItem(keys.phone);
+  target.removeItem(keys.accessToken);
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(CUSTOMER_SESSION_EVENT));
+}
+
 export function requiredFieldMessage(isEnglish: boolean, type?: string) {
   if (type === "email") return isEnglish ? "Enter a valid email address." : "يرجى إدخال بريد إلكتروني صحيح.";
   if (type === "tel") return isEnglish ? "Enter a valid mobile number." : "يرجى إدخال رقم جوال صحيح.";
