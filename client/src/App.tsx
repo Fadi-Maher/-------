@@ -19,6 +19,8 @@ import AuditDashboard from "@/pages/AuditDashboard";
 import TeamLogin from "@/pages/TeamLogin";
 import TeamWorkspace from "@/pages/TeamWorkspace";
 import SalesAssistantPage from "@/pages/SalesAssistantPage";
+import OrderSupport from "@/pages/OrderSupport";
+import OrderSupportInbox from "@/pages/OrderSupportInbox";
 import TeamRequestDetail from "@/pages/TeamRequestDetail";
 import AccessLogin from "@/pages/AccessLogin";
 import AgentLogin from "@/pages/AgentLogin";
@@ -64,6 +66,8 @@ function Router() {
       <Route path={"/settings/assistant"} component={AssistantKnowledge} />
       <Route path={"/settings/notifications"} component={NotificationSettings} />
       <Route path={"/sales-assistant"} component={SalesAssistantPage} />
+      <Route path={"/support"} component={OrderSupport} />
+      <Route path={"/support-inbox"} component={OrderSupportInbox} />
       <Route path={"/track"} component={TrackRequest} />
       <Route path={"/terms-and-conditions"} component={TermsAndConditions} />
       <Route path={"/refund-and-cancellation"} component={RefundAndCancellation} />

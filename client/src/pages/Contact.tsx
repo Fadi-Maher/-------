@@ -97,6 +97,7 @@ export default function Contact() {
     <div className="public-flat min-h-screen overflow-x-hidden bg-[#f4f9ff] text-[#102a43]" dir={isEnglish ? "ltr" : "rtl"}>
       <PublicHeader onChooseService={action => window.location.assign(action === "طلب خدمة" ? "/#request" : "/track")} />
       <main>
+        <div className="container py-5"><a href="/support" className="flex items-center justify-between gap-4 rounded-2xl border border-[#cde3fa] bg-white px-5 py-4 text-sm font-bold text-[#102a43]"><span className="flex items-center gap-3"><Headphones className="h-5 w-5 text-[#0878f9]" />{isEnglish ? "Request support assistant — answers and human help" : "مساعد دعم الطلبات — إجابات ومساعدة بشرية"}</span>{isEnglish ? <ArrowRight className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}</a></div>
         <section className="app-grid relative overflow-hidden bg-[#eef7ff] py-14 sm:py-20">
           <div className="blue-orb absolute -right-40 -top-52 h-[36rem] w-[36rem]" />
           <div className="container relative">
