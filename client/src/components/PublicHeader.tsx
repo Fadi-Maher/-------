@@ -1,14 +1,14 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { BrandMark } from "@/components/BrandMark";
 import { LanguageToggle } from "@/components/LanguageToggle";
-import { UnifiedAccessButton } from "@/components/UnifiedAccessButton";
+import { AgentAccessLink, UnifiedAccessButton } from "@/components/UnifiedAccessButton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CUSTOMER_SESSION_EVENT, readCustomerSession } from "@/lib/customerSession";
 import { useSignedInWorkspace, workspaceLabel } from "@/lib/signedInWorkspace";
-import { BriefcaseBusiness, Building2, Headphones, Home, LogOut, Menu, Route, UserRound } from "lucide-react";
+import { BadgeCheck, BriefcaseBusiness, Building2, Headphones, Home, LogOut, Menu, Route, UserRound } from "lucide-react";
 
 const productNav = [
   { ar: "تعقّب المعاملات", en: "Track requests", icon: Route, action: "تعقّب المعاملات" },
@@ -83,9 +83,11 @@ function AccountMenu({ compact = false }: { compact?: boolean }) {
 }
 
 function PublicAuthActions({ compact = false }: { compact?: boolean }) {
+  const { workspace } = useSignedInWorkspace();
   return (
-    <div data-testid={compact ? "public-auth-mobile" : "public-auth-desktop"} className={compact ? "grid w-full grid-cols-1" : "flex shrink-0 items-center"}>
+    <div data-testid={compact ? "public-auth-mobile" : "public-auth-desktop"} className={compact ? `grid w-full gap-2 ${workspace ? "grid-cols-1" : "grid-cols-2"}` : "flex shrink-0 items-center gap-2"}>
       <UnifiedAccessButton compact={compact} />
+      <AgentAccessLink compact={compact} />
     </div>
   );
 }
@@ -99,6 +101,7 @@ function SideNavigation({ onChooseService }: { onChooseService: (service: string
     workspace
       ? { ar: workspaceLabel(workspace, false), en: workspaceLabel(workspace, true), icon: UserRound, href: workspace.href }
       : { ar: "الدخول", en: "Sign in", icon: UserRound, href: "/login" },
+    ...(workspace ? [] : [{ ar: "دخول المعقبين", en: "Agent sign-in", icon: BadgeCheck, href: "/agent-login" }]),
     { ar: "تعقّب المعاملات", en: "Track requests", icon: Route, action: "تعقّب المعاملات" },
     { ar: "طلب خدمة", en: "Request a service", icon: Building2, action: "طلب خدمة" },
     { ar: "خدمات الأعمال", en: "Business services", icon: BriefcaseBusiness, action: "طلب خدمة" },

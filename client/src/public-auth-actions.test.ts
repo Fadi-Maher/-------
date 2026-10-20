@@ -439,6 +439,65 @@ describe("إجراءات الدخول العامة والتحقق المشترك
     );
     expect(screen.queryByRole("dialog")).toBeNull();
   });
+  it("shows a visible agent sign-in entry that opens the agent path directly", async () => {
+    const user = userEvent.setup();
+    // The mobile owns both accounts; the agent entry must skip the type step.
+    mocks.accounts.mockResolvedValue({
+      customer: { fullName: "Both Accounts" },
+      activeAgent: { fullName: "Active Agent" },
+    });
+    renderHeader();
+    for (const row of authRows()) {
+      expect(
+        row.getByRole("link", { name: "Agent sign-in" }).getAttribute("href")
+      ).toBe("/agent-login");
+    }
+    await user.click(authRows()[1].getByRole("link", { name: "Agent sign-in" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("heading", { name: "Agent sign-in" })
+    ).toBeTruthy();
+    await user.type(
+      within(dialog).getByRole("textbox", { name: "Mobile number" }),
+      "0500000098"
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Continue", exact: true })
+    );
+    await user.type(
+      await within(dialog).findByRole("textbox", { name: "Verification code" }),
+      "123456"
+    );
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Verify and continue",
+        exact: true,
+      })
+    );
+    await waitFor(() =>
+      expect(mocks.navigate).toHaveBeenCalledWith("/agent-dashboard")
+    );
+    expect(mocks.agent).toHaveBeenCalledWith({
+      verificationToken: "verified-phone-ticket-not-real-session",
+    });
+    expect(within(dialog).queryByRole("button", { name: /^Customer/ })).toBeNull();
+  });
+  it("hides the agent sign-in entry while any account is signed in", () => {
+    localStorage.setItem("maalamati_customer_name", "Nora Existing");
+    localStorage.setItem("maalamati_customer_phone", "0500000098");
+    localStorage.setItem("maalamati_customer_access_token", "stored-customer-access");
+    const view = renderHeader();
+    for (const row of authRows()) {
+      expect(row.queryByRole("link", { name: "Agent sign-in" })).toBeNull();
+    }
+    view.unmount();
+    localStorage.clear();
+    mocks.auth.user = { name: "QA Agent", email: "agent@test", role: "agent" };
+    renderHeader();
+    for (const row of authRows()) {
+      expect(row.queryByRole("link", { name: "Agent sign-in" })).toBeNull();
+    }
+  });
   it("requires terms only for a new customer and saves no profile before consent", async () => {
     const user = userEvent.setup();
     mocks.profileGet.mockResolvedValue({

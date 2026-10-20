@@ -1,7 +1,7 @@
 import { useLanguage } from "@/contexts/LanguageContext";
 import { openAuthModal } from "@/lib/authFlow";
 import { useSignedInWorkspace, workspaceLabel } from "@/lib/signedInWorkspace";
-import { LayoutDashboard, UserRound } from "lucide-react";
+import { BadgeCheck, LayoutDashboard, UserRound } from "lucide-react";
 import { useLocation } from "wouter";
 
 const baseClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0878f9] focus-visible:ring-offset-2";
@@ -38,5 +38,28 @@ export function UnifiedAccessButton({ compact = false }: { compact?: boolean }) 
       <UserRound className="h-4 w-4" aria-hidden="true" />
       <span>{trigger}</span>
     </button>
+  );
+}
+
+/**
+ * Visible agent entry. The global AuthModal link handler turns /agent-login
+ * into the agent sign-in modal; without it the link opens the agent page.
+ * Hidden while signed in: switching accounts requires signing out first.
+ */
+export function AgentAccessLink({ compact = false }: { compact?: boolean }) {
+  const { isEnglish } = useLanguage();
+  const { workspace } = useSignedInWorkspace();
+  if (workspace) return null;
+  const label = isEnglish ? "Agent sign-in" : "دخول المعقبين";
+  const sizeClass = compact ? "w-full px-2" : "shrink-0 px-3.5";
+  return (
+    <a
+      href="/agent-login"
+      data-auth-trigger="agent"
+      className={`${baseClass} ${sizeClass} border border-[#cfe3fa] bg-white text-[#075aa8] hover:border-[#0878f9] hover:bg-[#f1f7ff]`}
+    >
+      <BadgeCheck className={compact ? "hidden h-4 w-4 shrink-0 min-[360px]:block" : "h-4 w-4 shrink-0"} aria-hidden="true" />
+      <span className="truncate">{label}</span>
+    </a>
   );
 }

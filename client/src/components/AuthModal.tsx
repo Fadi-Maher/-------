@@ -609,9 +609,13 @@ export function AuthModal() {
   };
   const title =
     phase === "phone"
-      ? isEnglish
-        ? "Continue with your mobile"
-        : "الدخول برقم الجوال"
+      ? requestedAudience === "agent"
+        ? isEnglish
+          ? "Agent sign-in"
+          : "دخول المعقبين"
+        : isEnglish
+          ? "Continue with your mobile"
+          : "الدخول برقم الجوال"
       : phase === "otp"
         ? isEnglish
           ? "Verify your mobile"

@@ -18,6 +18,7 @@ const footerGroups = {
         { label: "تواصل ودعم", href: "/contact" },
         { label: "طلباتي", href: "/customer-account" },
         { label: "تسجيل الدخول", href: "/login" },
+        { label: "دخول المعقبين", href: "/agent-login" },
       ],
     },
     {
@@ -47,6 +48,7 @@ const footerGroups = {
         { label: "Contact & support", href: "/contact" },
         { label: "My requests", href: "/customer-account" },
         { label: "Sign in", href: "/login" },
+        { label: "Agent sign-in", href: "/agent-login" },
       ],
     },
     {
