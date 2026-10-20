@@ -105,6 +105,38 @@ describe("CustomerAuthForm", () => {
     expect(mocks.toastSuccess).toHaveBeenCalledWith("Welcome back, Nora Customer", expect.any(Object));
   });
 
+  it("uses a valid seeded phone at OTP entry without mutations until the code is submitted", async () => {
+    const user = userEvent.setup();
+    mocks.verifyPhone.mockResolvedValue({ accessToken });
+    mocks.findCustomer.mockResolvedValue({ id: 7, fullName: "Nora Customer", phone: "0500000000", email: "nora@example.test" });
+
+    render(h(CustomerAuthForm, { variant: "modal", initialPhone: "+966500000000" }));
+
+    expect(screen.getByRole("heading", { name: "Verify your mobile number." })).toBeTruthy();
+    expect(screen.queryByLabelText("Mobile number")).toBeNull();
+    expect(mocks.verifyPhone).not.toHaveBeenCalled();
+    expect(mocks.findCustomer).not.toHaveBeenCalled();
+    expect(mocks.registerCustomer).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText("Enter the six-digit demo code"), "123456");
+    expect(mocks.verifyPhone).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Verify and continue" }));
+
+    await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith("/customer-account"));
+    expect(mocks.verifyPhone).toHaveBeenCalledWith({ phone: "0500000000", code: "123456" });
+  });
+
+  it("delegates changing a seeded phone to the modal owner instead of returning to phone entry", async () => {
+    const onChangePhone = vi.fn();
+    render(h(CustomerAuthForm, { variant: "modal", initialPhone: "0500000000", onChangePhone }));
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Change mobile number" }));
+
+    expect(onChangePhone).toHaveBeenCalledTimes(1);
+    expect(screen.queryByLabelText("Mobile number")).toBeNull();
+    expect(mocks.verifyPhone).not.toHaveBeenCalled();
+  });
+
   it("registers a new customer after consent, then persists, welcomes, and SPA-redirects", async () => {
     const user = userEvent.setup();
     mocks.registerCustomer.mockResolvedValue({ id: 8, fullName: "Layla New", phone: "0500000000", email: "layla@example.test" });

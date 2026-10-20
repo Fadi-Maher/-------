@@ -7,8 +7,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CUSTOMER_SESSION_EVENT, readCustomerSession } from "@/lib/customerSession";
-import { openAuthModal } from "@/lib/authFlow";
-import { BriefcaseBusiness, Building2, Headphones, Home, LogOut, Menu, Route, UserPlus, UserRound } from "lucide-react";
+import { BriefcaseBusiness, Building2, Headphones, Home, LogOut, Menu, Route, UserRound } from "lucide-react";
 
 const productNav = [
   { ar: "تعقّب المعاملات", en: "Track requests", icon: Route, action: "تعقّب المعاملات" },
@@ -82,14 +81,9 @@ function AccountMenu({ compact = false }: { compact?: boolean }) {
 }
 
 function PublicAuthActions({ compact = false }: { compact?: boolean }) {
-  const { isEnglish } = useLanguage();
   return (
-    <div data-testid={compact ? "public-auth-mobile" : "public-auth-desktop"} className={compact ? "grid w-full grid-cols-2 gap-2" : "flex shrink-0 items-center gap-2"}>
+    <div data-testid={compact ? "public-auth-mobile" : "public-auth-desktop"} className={compact ? "grid w-full grid-cols-1" : "flex shrink-0 items-center"}>
       <UnifiedAccessButton compact={compact} />
-      <button type="button" data-auth-trigger="signup" onClick={event => openAuthModal({ intent: "signup", audience: "customer", trigger: event.currentTarget })} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0668d9] px-3 text-sm font-extrabold text-white shadow-sm transition-colors hover:bg-[#0457ba] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0878f9] focus-visible:ring-offset-2">
-        <UserPlus className="h-4 w-4" aria-hidden="true" />
-        <span>{isEnglish ? "Create account" : "إنشاء حساب"}</span>
-      </button>
     </div>
   );
 }
@@ -109,8 +103,7 @@ function SideNavigation({ onChooseService }: { onChooseService: (service: string
   }, []);
   const items = [
     { ar: "الرئيسية", en: "Home", icon: Home, href: "/" },
-    ...(!customerLoggedIn ? [{ ar: "تسجيل الدخول", en: "Sign in", icon: UserRound, href: "/login" }] : []),
-    { ar: "إنشاء حساب", en: "Create account", icon: UserPlus, href: "/customer-signup" },
+    ...(!customerLoggedIn ? [{ ar: "الدخول", en: "Sign in", icon: UserRound, href: "/login" }] : []),
     { ar: "تعقّب المعاملات", en: "Track requests", icon: Route, action: "تعقّب المعاملات" },
     { ar: "طلب خدمة", en: "Request a service", icon: Building2, action: "طلب خدمة" },
     { ar: "خدمات الأعمال", en: "Business services", icon: BriefcaseBusiness, action: "طلب خدمة" },

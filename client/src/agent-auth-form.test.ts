@@ -64,8 +64,11 @@ async function reachVerification(user: ReturnType<typeof userEvent.setup>) {
   await user.type(otpInput(), "123456");
 }
 
-function renderForm(onBusyChange?: (busy: boolean) => void) {
-  return render(React.createElement(AgentAuthForm, { variant: "modal", onBusyChange }));
+function renderForm(
+  onBusyChange?: (busy: boolean) => void,
+  authProps: Partial<React.ComponentProps<typeof AgentAuthForm>> = {},
+) {
+  return render(React.createElement(AgentAuthForm, { variant: "modal", ...authProps, onBusyChange }));
 }
 
 beforeAll(() => {
@@ -107,6 +110,36 @@ describe("AgentAuthForm", () => {
       "Welcome back, Agent Ada",
       expect.objectContaining({ description: "Your agent workspace is ready." })
     );
+  });
+
+  it("uses a valid seeded phone at OTP entry without mutations until the code is submitted", async () => {
+    const user = userEvent.setup();
+    mocks.mutateAsync.mockResolvedValue({ success: true, role: "agent", name: "Agent Ada" });
+    renderForm(undefined, { initialPhone: "٠٥٠٠٠٠٠٠٠٤" });
+
+    expect(screen.getByLabelText("Verification code")).toBeTruthy();
+    expect(screen.queryByLabelText("Mobile number")).toBeNull();
+    expect(mocks.mutateAsync).not.toHaveBeenCalled();
+    expect(mocks.invalidate).not.toHaveBeenCalled();
+    expect(mocks.fetch).not.toHaveBeenCalled();
+
+    await user.type(otpInput(), "123456");
+    expect(mocks.mutateAsync).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith("/agent-dashboard"));
+    expect(mocks.mutateAsync).toHaveBeenCalledWith({ phone: "0500000004", code: "123456" });
+  });
+
+  it("delegates changing a seeded phone to the modal owner instead of returning to phone entry", async () => {
+    const onChangePhone = vi.fn();
+    renderForm(undefined, { initialPhone: "0500000004", onChangePhone });
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Change mobile number" }));
+
+    expect(onChangePhone).toHaveBeenCalledTimes(1);
+    expect(screen.queryByLabelText("Mobile number")).toBeNull();
+    expect(mocks.mutateAsync).not.toHaveBeenCalled();
   });
 
   it.each([

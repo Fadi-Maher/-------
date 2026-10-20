@@ -54,8 +54,11 @@ vi.mock("./contexts/LanguageContext", () => ({
   }),
 }));
 
-vi.mock("./components/CustomerAuthForm", () => ({ CustomerAuthForm: () => h("input", { "aria-label": "Mock customer phone", "data-testid": "customer-modal-form" }) }));
-vi.mock("./components/AgentAuthForm", () => ({ AgentAuthForm: () => h("input", { "aria-label": "Mock agent phone", "data-testid": "agent-modal-form" }) }));
+vi.mock("./components/CustomerAuthForm", async importOriginal => {
+  const actual = await importOriginal<typeof import("./components/CustomerAuthForm")>();
+  return { ...actual, CustomerAuthForm: (props: { initialPhone?: string; onChangePhone?: () => void; onBusyChange?: (busy: boolean) => void }) => h("div", { "data-testid": "customer-modal-form" }, h("output", { "data-testid": "seeded-phone" }, props.initialPhone), h("input", { "aria-label": "Mock customer code" }), h("button", { onClick: props.onChangePhone }, "Mock change mobile"), h("button", { onClick: () => props.onBusyChange?.(true) }, "Lock request"), h("button", { onClick: () => props.onBusyChange?.(false) }, "Unlock request")) };
+});
+vi.mock("./components/AgentAuthForm", () => ({ AgentAuthForm: (props: { initialPhone?: string; onChangePhone?: () => void }) => h("div", { "data-testid": "agent-modal-form" }, h("output", { "data-testid": "seeded-phone" }, props.initialPhone), h("input", { "aria-label": "Mock agent code" }), h("button", { onClick: props.onChangePhone }, "Mock change mobile")) }));
 
 import { PublicHeader } from "./components/PublicHeader";
 import { AuthModal } from "./components/AuthModal";
@@ -76,11 +79,11 @@ function authRows() {
 function expectPersistentPublicAuthActions() {
   for (const row of authRows()) {
     const signIn = row.getByRole("button", { name: "Sign in" });
-    const createAccount = row.getByRole("button", { name: "Create account" });
 
     expect(signIn.textContent?.trim()).toContain("Sign in");
-    expect(createAccount.textContent?.trim()).toContain("Create account");
-    expect(createAccount.getAttribute("href")).toBeNull();
+    expect(row.getAllByRole("button")).toHaveLength(1);
+    expect(row.queryByRole("button", { name: "Create account" })).toBeNull();
+    expect(signIn.getAttribute("href")).toBeNull();
   }
 
   // The account menu must not add a third login trigger: exactly one belongs
@@ -140,7 +143,7 @@ describe("إجراءات الدخول العامة", () => {
     ["employee", publicUser("employee"), false],
     ["user", publicUser("user"), false],
   ] as const)(
-    "does not hide Sign in or Create account for useAuth state %s",
+    "keeps exactly one Sign in entry for useAuth state %s",
     (_state, user, loading) => {
       mocks.auth.user = user;
       mocks.auth.loading = loading;
@@ -161,7 +164,7 @@ describe("إجراءات الدخول العامة", () => {
     expectPersistentPublicAuthActions();
   });
 
-  it("uses visible compact text, opens the chooser and customer form without navigation, and restores trigger focus after Escape", async () => {
+  it("opens mobile first, then account type, then the seeded form without navigation, and restores trigger focus", async () => {
     const user = userEvent.setup();
     renderHeader();
 
@@ -176,21 +179,23 @@ describe("إجراءات الدخول العامة", () => {
 
     await user.click(desktopSignIn);
     const dialog = await screen.findByRole("dialog", {
-      name: "How would you like to continue?",
+      name: "Continue with your mobile",
     });
 
-    expect(
-      within(dialog).getByRole("button", { name: "Service requester" })
-    ).toBeDefined();
-    expect(
-      within(dialog).getByRole("button", { name: "Transaction specialist" })
-    ).toBeDefined();
+    expect(within(dialog).queryByRole("button", { name: /^Customer/ })).toBeNull();
+    expect(within(dialog).queryByRole("button", { name: /^Agent/ })).toBeNull();
+    await user.type(within(dialog).getByRole("textbox", { name: "Mobile number" }), "٠٥٠٠٠٠٠٠٩٨");
+    await user.click(within(dialog).getByRole("button", { name: "Continue", exact: true }));
+    expect(within(dialog).getByRole("button", { name: /^Customer/ })).toBeDefined();
+    expect(within(dialog).getByRole("button", { name: /^Agent/ })).toBeDefined();
     expect(
       document.querySelector('a[href="/dashboard"], a[href="/owner-login"]')
     ).toBeNull();
 
-    await user.click(within(dialog).getByRole("button", { name: "Service requester" }));
+    await user.click(within(dialog).getByRole("button", { name: /^Customer/ }));
     expect(await screen.findByTestId("customer-modal-form")).toBeDefined();
+    expect(screen.getByTestId("seeded-phone").textContent).toBe("0500000098");
+    expect(within(dialog).queryByRole("textbox", { name: "Mobile number" })).toBeNull();
     expect(window.location.pathname).toBe("/");
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -205,5 +210,48 @@ describe("إجراءات الدخول العامة", () => {
     expect(
       document.querySelector('a[href="/dashboard"], a[href="/owner-login"]')
     ).toBeNull();
+  });
+
+  it("rejects invalid mobile numbers before showing either account type", async () => {
+    const user = userEvent.setup();renderHeader();
+    await user.click(authRows()[0].getByRole("button", { name: "Sign in" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByRole("textbox", { name: "Mobile number" }), "not-a-number");
+    await user.click(within(dialog).getByRole("button", { name: "Continue", exact: true }));
+    expect(within(dialog).getByRole("alert").textContent).toContain("valid Saudi mobile");
+    expect(within(dialog).queryByRole("button", { name: /^Customer/ })).toBeNull();
+    expect(within(dialog).queryByRole("button", { name: /^Agent/ })).toBeNull();
+  });
+
+  it("preserves the number when changing role or returning to mobile and clears old code forms", async () => {
+    const user = userEvent.setup();renderHeader();
+    await user.click(authRows()[0].getByRole("button", { name: "Sign in" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByRole("textbox", { name: "Mobile number" }), "+966500000098");
+    await user.click(within(dialog).getByRole("button", { name: "Continue", exact: true }));
+    await user.click(within(dialog).getByRole("button", { name: /^Customer/ }));
+    await user.type(within(dialog).getByRole("textbox", { name: "Mock customer code" }), "111111");
+    await user.click(within(dialog).getByRole("button", { name: "Change account type" }));
+    await user.click(within(dialog).getByRole("button", { name: /^Agent/ }));
+    expect(screen.queryByTestId("customer-modal-form")).toBeNull();
+    expect(screen.getByTestId("seeded-phone").textContent).toBe("0500000098");
+    expect((within(dialog).getByRole("textbox", { name: "Mock agent code" }) as HTMLInputElement).value).toBe("");
+    await user.click(within(dialog).getByRole("button", { name: "Mock change mobile" }));
+    expect((within(dialog).getByRole("textbox", { name: "Mobile number" }) as HTMLInputElement).value).toBe("0500000098");
+  });
+
+  it("locks closing, role changes, and new modal requests while server verification is pending", async () => {
+    const user = userEvent.setup();renderHeader();
+    await user.click(authRows()[0].getByRole("button", { name: "Sign in" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByRole("textbox", { name: "Mobile number" }), "0500000098");
+    await user.click(within(dialog).getByRole("button", { name: "Continue", exact: true }));
+    await user.click(within(dialog).getByRole("button", { name: /^Customer/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Lock request" }));
+    expect((within(dialog).getByRole("button", { name: "Close sign in" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((within(dialog).getByRole("button", { name: "Change account type" }) as HTMLButtonElement).disabled).toBe(true);
+    await user.keyboard("{Escape}");expect(screen.getByRole("dialog")).toBeDefined();
+    await user.click(within(dialog).getByRole("button", { name: "Unlock request" }));
+    await user.keyboard("{Escape}");await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 });

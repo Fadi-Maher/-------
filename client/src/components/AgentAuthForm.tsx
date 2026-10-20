@@ -11,6 +11,8 @@ import { useLocation } from "wouter";
 export type AgentAuthFormProps = {
   variant?: "modal" | "page";
   onBusyChange?: (busy: boolean) => void;
+  initialPhone?: string;
+  onChangePhone?: () => void;
 };
 
 const arabicDigitMap: Record<string, string> = {
@@ -37,16 +39,19 @@ function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
-export function AgentAuthForm({ variant = "page", onBusyChange }: AgentAuthFormProps) {
+export function AgentAuthForm({ variant = "page", onBusyChange, initialPhone, onChangePhone }: AgentAuthFormProps) {
   const { isEnglish } = useLanguage();
   const [, navigate] = useLocation();
   const phoneId = useId();
   const utils = trpc.useUtils();
   const login = trpc.auth.agentPhoneDemo.useMutation();
   const submittingRef = useRef(false);
-  const [step, setStep] = useState<"phone" | "code">("phone");
-  const [phoneInput, setPhoneInput] = useState("");
-  const [phone, setPhone] = useState("");
+  const normalizedInitialPhone = normalizeSaudiAgentPhone(initialPhone ?? "");
+  // The chooser may supply a valid phone, but it must not imply a login or a
+  // role. These side-effect-free initializers merely skip re-entering it.
+  const [step, setStep] = useState<"phone" | "code">(() => normalizedInitialPhone ? "code" : "phone");
+  const [phoneInput, setPhoneInput] = useState(() => normalizedInitialPhone ?? "");
+  const [phone, setPhone] = useState(() => normalizedInitialPhone ?? "");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -226,6 +231,10 @@ export function AgentAuthForm({ variant = "page", onBusyChange }: AgentAuthFormP
             disabled={busy}
             onClick={() => {
               if (busy) return;
+              if (onChangePhone) {
+                onChangePhone();
+                return;
+              }
               setStep("phone");
               setCode("");
               setError("");

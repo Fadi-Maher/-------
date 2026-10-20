@@ -21,10 +21,12 @@ export type CustomerRecord = {
   email: string | null;
 };
 
-type CustomerAuthFormProps = {
+export type CustomerAuthFormProps = {
   mode?: "signin" | "signup";
   variant?: "modal" | "page";
   onBusyChange?: (busy: boolean) => void;
+  initialPhone?: string;
+  onChangePhone?: () => void;
 };
 
 /** Accepts Saudi numbers entered with Arabic or Western digits and normalizes them for the API. */
@@ -51,12 +53,18 @@ export function CustomerAuthForm({
   mode = "signin",
   variant = "page",
   onBusyChange,
+  initialPhone,
+  onChangePhone,
 }: CustomerAuthFormProps) {
   const { isEnglish } = useLanguage();
   const [, navigate] = useLocation();
   const fieldId = useId();
-  const [step, setStep] = useState<"phone" | "verify" | "details">("phone");
-  const [phone, setPhone] = useState("");
+  const normalizedInitialPhone = normalizeSaudiPhone(initialPhone ?? "");
+  // A valid phone passed from the account chooser starts at OTP entry. State
+  // initializers are deliberately side-effect-free: verification happens only
+  // after the person explicitly submits the code.
+  const [step, setStep] = useState<"phone" | "verify" | "details">(() => normalizedInitialPhone ? "verify" : "phone");
+  const [phone, setPhone] = useState(() => normalizedInitialPhone ?? "");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -237,6 +245,10 @@ export function CustomerAuthForm({
 
   const reset = () => {
     if (isBusy) return;
+    if (onChangePhone) {
+      onChangePhone();
+      return;
+    }
     setStep("phone");
     setCode("");
     setError("");

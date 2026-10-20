@@ -187,15 +187,20 @@ describe("النصوص العامة لمعاملاتي", () => {
     expect(ownerLogin).toContain("onClick={startLogin}");
     expect(publicHeader).toContain("تسجيل الخروج");
     expect(publicHeader).toContain("UnifiedAccessButton");
-    expect(unifiedAccessButton).toContain("border-[#b7dbff]");
+    expect(unifiedAccessButton).toContain("bg-[#0668d9]");
+    expect(publicHeader).not.toContain('data-auth-trigger="signup"');
   });
 
-  it("يعرض طالب خدمة ومعقب دون نصوص وصفية أسفل الخيارين", () => {
-    expect(authModal).toContain('"Service requester" : "طالب خدمة"');
-    expect(authModal).toContain('"Transaction specialist" : "معقب"');
+  it("يبدأ بالجوال ثم يعرض عميل ومعقب ويمرر الرقم دون تكرار إدخاله", () => {
+    expect(authModal).toContain('"Customer" : "عميل"');
+    expect(authModal).toContain('"Agent" : "معقب"');
+    expect(authModal).toContain('useState<Phase>("phone")');
+    expect(authModal).toContain('setPhase("role")');
+    expect(authModal).toContain('initialPhone={phone}');
+    expect(authModal).toContain('onChangePhone={changePhone}');
     expect(authModal).not.toContain("customerHint");
     expect(authModal).not.toContain("agentHint");
-    expect(authModal).not.toContain("DialogDescription");
+    expect(authModal).toContain('DialogDescription className="sr-only"');
     expect(authModal).not.toContain("اختر نوع الحساب. حسابات الموظفين ينشئها ويديرها المالك فقط");
     expect(authModal).not.toContain("Choose your account type. Employee accounts are created and managed by the owner only");
     expect(authModal).toContain('data-account-choice="customer"');
@@ -579,7 +584,7 @@ describe("النصوص العامة لمعاملاتي", () => {
   it("يوحد الدخول لطالب الخدمة والمعقب ويقصر إنشاء الموظفين على المالك", () => {
     expect(appRoutes).toContain('path={"/login"}');
     expect(appRoutes).toContain('path={"/agent-login"}');
-    expect(authModal).toContain("طالب خدمة");
+    expect(authModal).toContain('"Customer" : "عميل"');
     expect(authModal).toContain("معقب");
     expect(authModal).not.toContain("href=\"/team-login\"");
     expect(agentLogin).toContain("agentPhoneDemo.useMutation");
