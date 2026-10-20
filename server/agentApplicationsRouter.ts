@@ -3,12 +3,17 @@ import { adminProcedure, publicProcedure, router } from "./_core/trpc";
 import {
   getAgentApplicationStatus,
   listAgentApplications,
+  recordAgentApplicationsExport,
   reviewAgentApplication,
   submitAgentApplication,
   toPublicAgentApplication,
 } from "./agentApplicationsDb";
 import { verifyPhoneLoginTicket } from "./phoneLoginTicket";
 import { publishApplicationNotification } from "./adminApplicationNotifications";
+import {
+  buildAgentApplicationsExport,
+  XLSX_MIME_TYPE,
+} from "./agentApplicationsExport";
 
 const verificationToken = z.string().min(1).max(500);
 const permissions = z.object({
@@ -65,6 +70,14 @@ export const agentApplicationReviewInput = z
     }
   });
 
+export const agentApplicationsExportInput = z.object({
+  // The same free text the owner typed; the server re-applies the list's filter.
+  query: z.string().max(80).default(""),
+  status: z.enum(["all", "pending", "approved", "rejected"]),
+  language: z.enum(["ar", "en"]),
+  timeZone: z.string().trim().max(64).optional(),
+});
+
 export const agentApplicationsRouter = router({
   status: publicProcedure
     .input(z.object({ verificationToken }))
@@ -104,6 +117,36 @@ export const agentApplicationsRouter = router({
     }))
   ),
 
+  exportXlsx: adminProcedure
+    .input(agentApplicationsExportInput)
+    .mutation(async ({ ctx, input }) => {
+      const applications = (await listAgentApplications()).map(
+        toPublicAgentApplication
+      );
+      const result = await buildAgentApplicationsExport({
+        applications,
+        query: input.query,
+        status: input.status,
+        language: input.language,
+        timeZone: input.timeZone,
+        generatedAt: Date.now(),
+      });
+      await recordAgentApplicationsExport({
+        actorUserId: ctx.user.id,
+        actorName: ctx.user.name ?? null,
+        count: result.count,
+        status: input.status,
+        searchKind: result.searchKind,
+        language: input.language,
+      });
+      return {
+        fileName: result.fileName,
+        mimeType: XLSX_MIME_TYPE,
+        base64: result.buffer.toString("base64"),
+        count: result.count,
+        truncated: result.truncated,
+      };
+    }),
   review: adminProcedure
     .input(agentApplicationReviewInput)
     .mutation(({ ctx, input }) =>

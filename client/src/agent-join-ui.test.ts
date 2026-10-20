@@ -32,7 +32,11 @@ const mocks = vi.hoisted(() => ({
   staffCreate: vi.fn(),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
+  exportXlsx: vi.fn(),
+  exportPending: false,
+  download: vi.fn(),
 }));
+vi.mock("@/lib/downloadFile", () => ({ downloadBase64File: mocks.download }));
 
 vi.mock("sonner", () => ({
   toast: { success: mocks.toastSuccess, error: mocks.toastError },
@@ -57,6 +61,9 @@ vi.mock("@/lib/trpc", () => ({
       list: { useQuery: () => mocks.listResult },
       review: {
         useMutation: () => ({ mutateAsync: mocks.review, isPending: false }),
+      },
+      exportXlsx: {
+        useMutation: () => ({ mutateAsync: mocks.exportXlsx, isPending: mocks.exportPending }),
       },
     },
     staffAccounts: {
@@ -138,6 +145,7 @@ beforeEach(() => {
     refetch: mocks.statusRefetch,
   };
   mocks.listResult = queryResult([pendingApplication]);
+  mocks.exportPending = false;
 });
 
 afterEach(cleanup);
@@ -487,5 +495,56 @@ describe("agent membership application UI", () => {
       (screen.getByLabelText("Reason for decision") as HTMLTextAreaElement)
         .value
     ).toBe("");
+  });
+});
+
+describe("agent applications Excel export", () => {
+  const xlsx = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  it("exports exactly the visible search results and confirms with a success toast", async () => {
+    mocks.listResult = queryResult([
+      pendingApplication,
+      { ...pendingApplication, id: 42, reference: "AG-0042", fullName: "Zayd Agent", phone: "0551234567" },
+    ]);
+    mocks.exportXlsx.mockResolvedValue({ fileName: "maalamati-agent-applications-20261020-1730.xlsx", mimeType: xlsx, base64: "UEsDBA==", count: 1, truncated: false });
+    const user = userEvent.setup();
+    render(h(AgentApplicationsPanel));
+    expect(screen.getByRole("button", { name: "Export 2 visible applications to an Excel file" })).toBeTruthy();
+    await user.type(screen.getByRole("searchbox", { name: "Search by mobile number or name" }), "+966 55 123 4567");
+    await user.click(screen.getByRole("button", { name: "Export 1 visible application to an Excel file" }));
+    await waitFor(() => expect(mocks.download).toHaveBeenCalledWith("UEsDBA==", "maalamati-agent-applications-20261020-1730.xlsx", xlsx));
+    expect(mocks.exportXlsx).toHaveBeenCalledWith(
+      expect.objectContaining({ query: "+966 55 123 4567", status: "pending", language: "en", timeZone: expect.any(String) })
+    );
+    expect(mocks.toastSuccess).toHaveBeenCalledWith("Exported 1 application to Excel", {
+      description: "The file matches the current search and status filter.",
+    });
+  });
+
+  it("is disabled when the current view has no applications", async () => {
+    const user = userEvent.setup();
+    render(h(AgentApplicationsPanel));
+    await user.type(screen.getByRole("searchbox", { name: "Search by mobile number or name" }), "0590000000");
+    const button = screen.getByRole("button", { name: "No applications to export in this view." });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    await user.click(button);
+    expect(mocks.exportXlsx).not.toHaveBeenCalled();
+  });
+
+  it("shows an Arabic loading label while exporting and an error toast on failure", async () => {
+    mocks.isEnglish = false;
+    mocks.exportPending = true;
+    const { unmount } = render(h(AgentApplicationsPanel));
+    const busy = screen.getByRole("button", { name: "تصدير 1 من الطلبات الظاهرة إلى ملف Excel" });
+    expect(busy.textContent).toContain("جارٍ التصدير…");
+    expect(busy.getAttribute("aria-busy")).toBe("true");
+    expect((busy as HTMLButtonElement).disabled).toBe(true);
+    unmount();
+    mocks.exportPending = false;
+    mocks.exportXlsx.mockRejectedValue(new Error(""));
+    const user = userEvent.setup();
+    render(h(AgentApplicationsPanel));
+    await user.click(screen.getByRole("button", { name: "تصدير 1 من الطلبات الظاهرة إلى ملف Excel" }));
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith("تعذر تصدير الملف. حاول مرة أخرى."));
+    expect(mocks.download).not.toHaveBeenCalled();
   });
 });

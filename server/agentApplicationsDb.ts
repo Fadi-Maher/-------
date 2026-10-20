@@ -603,3 +603,36 @@ export async function reviewAgentApplication(
     throw error;
   }
 }
+
+export type AgentApplicationsExportAudit = {
+  actorUserId: number;
+  actorName: string | null;
+  count: number;
+  status: "all" | "pending" | "approved" | "rejected";
+  searchKind: "none" | "phone" | "name";
+  language: "ar" | "en";
+};
+
+/**
+ * Records that the owner exported personal data. The search text itself is never
+ * stored (it may be a mobile number); only its kind and the result size are kept.
+ */
+export async function recordAgentApplicationsExport(input: AgentApplicationsExportAudit) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.insert(auditLogs).values({
+    actorUserId: input.actorUserId,
+    actorRole: "admin",
+    actorName: input.actorName,
+    requestId: null,
+    action: "agent_applications.exported",
+    summary: `صدّر المالك ${input.count} من طلبات انضمام المعقبين إلى ملف Excel.`,
+    beforeJson: null,
+    afterJson: JSON.stringify({
+      count: input.count,
+      status: input.status,
+      searchKind: input.searchKind,
+      language: input.language,
+    }),
+  });
+}

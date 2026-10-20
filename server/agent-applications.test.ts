@@ -18,6 +18,7 @@ vi.mock("./agentApplicationsDb", () => ({
   submitAgentApplication: mocks.submit,
   listAgentApplications: mocks.list,
   reviewAgentApplication: mocks.review,
+  recordAgentApplicationsExport: vi.fn(),
   toPublicAgentApplication: (application: unknown) => application,
 }));
 

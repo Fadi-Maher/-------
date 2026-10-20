@@ -25,12 +25,15 @@ import {
   normalizePhoneQuery,
   normalizeStoredPhone,
 } from "@/lib/phoneSearch";
+import { downloadBase64File } from "@/lib/downloadFile";
+import { toast } from "sonner";
 import {
   AlertCircle,
   BadgeCheck,
   CheckCircle2,
   ChevronDown,
   ClipboardList,
+  FileSpreadsheet,
   Loader2,
   RefreshCw,
   Search,
@@ -114,6 +117,8 @@ export function AgentApplicationsPanel() {
   );
   const list = trpc.agentApplications.list.useQuery();
   const review = trpc.agentApplications.review.useMutation();
+  const exportXlsx = trpc.agentApplications.exportXlsx.useMutation();
+  const exportingRef = useRef(false);
   const utils = trpc.useUtils();
   const noteId = useId();
   const searchId = useId();
@@ -183,6 +188,16 @@ export function AgentApplicationsPanel() {
         otherStatusMatches: "No match in this status. Matches were found in:",
         exactMatch: "Exact mobile match",
         refresh: "Refresh",
+        exportLabel: "Export Excel",
+        exporting: "Exporting…",
+        exportAria: (count: number) =>
+          `Export ${count} visible ${count === 1 ? "application" : "applications"} to an Excel file`,
+        exportEmpty: "No applications to export in this view.",
+        exportSuccess: (count: number) =>
+          `Exported ${count} ${count === 1 ? "application" : "applications"} to Excel`,
+        exportHint: "The file matches the current search and status filter.",
+        exportTruncated: "Only the first 5,000 applications were included; narrow the search to export the rest.",
+        exportError: "We could not export the file. Please try again.",
         loading: "Loading membership applications…",
         loadError: "We could not load membership applications.",
         retry: "Try again",
@@ -251,6 +266,20 @@ export function AgentApplicationsPanel() {
         otherStatusMatches: "لا توجد مطابقة في هذه الحالة، وتوجد مطابقات في:",
         exactMatch: "تطابق تام لرقم الجوال",
         refresh: "تحديث",
+        exportLabel: "تصدير Excel",
+        exporting: "جارٍ التصدير…",
+        exportAria: (count: number) =>
+          `تصدير ${count} من الطلبات الظاهرة إلى ملف Excel`,
+        exportEmpty: "لا توجد طلبات لتصديرها في هذا العرض.",
+        exportSuccess: (count: number) =>
+          count === 1
+            ? "تم تصدير طلب واحد إلى Excel"
+            : count === 2
+              ? "تم تصدير طلبين إلى Excel"
+              : `تم تصدير ${count} طلبات إلى Excel`,
+        exportHint: "يطابق الملف البحث الحالي وتصفية الحالة.",
+        exportTruncated: "صُدّر أول 5000 طلب فقط؛ ضيّق البحث لتصدير الباقي.",
+        exportError: "تعذر تصدير الملف. حاول مرة أخرى.",
         loading: "جارٍ تحميل طلبات الانضمام…",
         loadError: "تعذر تحميل طلبات الانضمام.",
         retry: "إعادة المحاولة",
@@ -344,6 +373,28 @@ export function AgentApplicationsPanel() {
       : status === "approved"
         ? "border-[#cce9c9] bg-[#f2fbee] text-[#287333]"
         : "border-[#f3c8cd] bg-[#fff4f5] text-[#a63240]";
+
+  const runExport = async () => {
+    if (exportingRef.current || exportXlsx.isPending) return;
+    if (visibleApplications.length === 0) return;
+    exportingRef.current = true;
+    try {
+      const result = await exportXlsx.mutateAsync({
+        query: trimmedSearch,
+        status: filter,
+        language: isEnglish ? "en" : "ar",
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      });
+      downloadBase64File(result.base64, result.fileName, result.mimeType);
+      toast.success(copy.exportSuccess(result.count), {
+        description: result.truncated ? copy.exportTruncated : copy.exportHint,
+      });
+    } catch (error) {
+      toast.error(errorMessage(error, copy.exportError));
+    } finally {
+      exportingRef.current = false;
+    }
+  };
 
   const closeReview = (force = false) => {
     if (review.isPending && !force) return;
@@ -448,19 +499,57 @@ export function AgentApplicationsPanel() {
             {copy.description}
           </p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => void list.refetch()}
-          disabled={list.isFetching}
-          className="h-10 shrink-0 rounded-xl border-[#b7dbff] bg-white text-[#0668d9] hover:bg-[#f3f9ff]"
-        >
-          <RefreshCw
-            className={`me-2 h-4 w-4 ${list.isFetching ? "animate-spin" : ""}`}
-            aria-hidden="true"
-          />
-          {copy.refresh}
-        </Button>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void runExport()}
+            disabled={
+              exportXlsx.isPending ||
+              list.isLoading ||
+              list.isError ||
+              visibleApplications.length === 0
+            }
+            aria-label={
+              visibleApplications.length === 0
+                ? copy.exportEmpty
+                : copy.exportAria(visibleApplications.length)
+            }
+            aria-busy={exportXlsx.isPending}
+            title={
+              visibleApplications.length === 0 ? copy.exportEmpty : copy.exportHint
+            }
+            className="h-10 rounded-xl border-[#bfe5cf] bg-white text-[#1d6f42] hover:bg-[#f1fbf5] hover:text-[#17583a]"
+          >
+            {exportXlsx.isPending ? (
+              <Loader2 className="me-2 h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <FileSpreadsheet className="me-2 h-4 w-4" aria-hidden="true" />
+            )}
+            {exportXlsx.isPending ? copy.exporting : copy.exportLabel}
+            {!exportXlsx.isPending && !list.isLoading && !list.isError ? (
+              <span
+                className="ms-1.5 inline-grid min-w-5 place-items-center rounded-full bg-[#e8f5e9] px-1 text-[11px] font-black text-[#1d6f42]"
+                aria-hidden="true"
+              >
+                {visibleApplications.length}
+              </span>
+            ) : null}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void list.refetch()}
+            disabled={list.isFetching}
+            className="h-10 rounded-xl border-[#b7dbff] bg-white text-[#0668d9] hover:bg-[#f3f9ff]"
+          >
+            <RefreshCw
+              className={`me-2 h-4 w-4 ${list.isFetching ? "animate-spin" : ""}`}
+              aria-hidden="true"
+            />
+            {copy.refresh}
+          </Button>
+        </div>
       </div>
 
       <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-[#e4eef8] bg-[#f8fbff] p-3 sm:flex-row sm:items-center">

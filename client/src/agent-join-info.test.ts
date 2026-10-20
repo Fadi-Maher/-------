@@ -9,6 +9,16 @@ import userEvent from "@testing-library/user-event";
 const mocks = vi.hoisted(() => ({
   isEnglish: false,
   workspace: null as null | { kind: "customer" | "agent" | "employee"; href: string; name: string },
+  whatsappNumber: null as string | null,
+}));
+vi.mock("@/lib/trpc", () => ({
+  trpc: {
+    settings: {
+      publicConfig: {
+        useQuery: () => ({ data: { whatsappNumber: mocks.whatsappNumber, fields: [] }, isLoading: false }),
+      },
+    },
+  },
 }));
 
 vi.mock("@/contexts/LanguageContext", () => ({
@@ -39,6 +49,7 @@ const approvedNotice = {
 beforeEach(() => {
   mocks.isEnglish = false;
   mocks.workspace = null;
+  mocks.whatsappNumber = null;
 });
 afterEach(cleanup);
 
@@ -148,5 +159,49 @@ describe("join as an agent page", () => {
     expect(footer).toContain('{ label: "انضم كمعقّب", href: "/join-as-agent" }');
     expect(footer).toContain('{ label: "Join as an agent", href: "/join-as-agent" }');
     expect(read("./components/AnnouncementBar.tsx")).toContain('"/join-as-agent"');
+  });
+});
+
+describe("join page WhatsApp support", () => {
+  it("opens WhatsApp with a ready join question from the hero, the FAQ card and the final call to action", () => {
+    mocks.whatsappNumber = "966530204050";
+    render(h(AgentJoinInfo));
+    const links = screen.getAllByRole("link", { name: "اسأل فريق الدعم عبر واتساب (يفتح في نافذة جديدة)" });
+    expect(links).toHaveLength(3);
+    const expected = `https://wa.me/966530204050?text=${encodeURIComponent("مرحبًا، لدي استفسار عن الانضمام كمعقّب في معاملاتي كير.")}`;
+    for (const link of links) {
+      expect(link.getAttribute("href")).toBe(expected);
+      expect(link.getAttribute("target")).toBe("_blank");
+      expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+      expect(link.textContent).toContain("اسأل الدعم عبر واتساب");
+    }
+    expect(screen.getByRole("heading", { name: "لديك سؤال لم تجد إجابته؟" })).toBeTruthy();
+  });
+
+  it("accepts a local Saudi number and writes the English message", () => {
+    mocks.isEnglish = true;
+    mocks.whatsappNumber = "0530204050";
+    render(h(AgentJoinInfo));
+    const [link] = screen.getAllByRole("link", { name: "Ask the support team on WhatsApp (opens in a new tab)" });
+    expect(link.getAttribute("href")).toBe(
+      `https://wa.me/966530204050?text=${encodeURIComponent("Hello, I have a question about joining Maalamati Care as an agent.")}`
+    );
+  });
+
+  it("falls back to the contact page in the same tab when no support number is saved", () => {
+    render(h(AgentJoinInfo));
+    const links = screen.getAllByRole("link", { name: "تواصل مع فريق الدعم" });
+    expect(links).toHaveLength(3);
+    for (const link of links) {
+      expect(link.getAttribute("href")).toBe("/contact");
+      expect(link.getAttribute("target")).toBeNull();
+    }
+  });
+
+  it("still offers support to a signed-in visitor who cannot apply yet", () => {
+    mocks.whatsappNumber = "966530204050";
+    mocks.workspace = { kind: "customer", href: "/customer-account", name: "Sara" };
+    render(h(AgentJoinInfo));
+    expect(screen.getAllByRole("link", { name: /عبر واتساب/ })).toHaveLength(3);
   });
 });
