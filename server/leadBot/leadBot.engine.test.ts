@@ -93,6 +93,22 @@ describe("leadBot understanding", () => {
     expect(extractSlots("رقمي 12345", "phone").invalidPhone).toBe(true);
   });
 
+  it("reads urgency, monthly volume and budget correctly from one long sentence", () => {
+    expect(
+      extractSlots(
+        "I need a commercial registration for my company in Riyadh urgently, we have more than 10 transactions a month and a budget over 5000 SAR",
+        null,
+      ).slots,
+    ).toMatchObject({ service: "commercial_registration", customerType: "business", urgency: "urgent", volume: "many", budget: "gt2000", city: "riyadh" });
+    const arabic = extractSlots("عندنا ١٠ معاملات في الشهر وميزانيتنا 3 آلاف ريال", null).slots;
+    expect(arabic).toMatchObject({ volume: "many", budget: "gt2000" });
+    expect(arabic.urgency).toBeUndefined();
+    expect(extractSlots("أبغاه خلال شهر", null).slots.urgency).toBe("month");
+    expect(extractSlots("ميزانيتي تقريبا 800", null).slots.budget).toBe("500_2000");
+    expect(extractSlots("SAR 2,500", null).slots.budget).toBe("gt2000");
+    expect(extractSlots("1500", "budget").slots.budget).toBe("500_2000");
+    expect(extractSlots("1500", null).slots.budget).toBeUndefined();
+  });
   it("parses quick replies strictly", () => {
     expect(parseQuickReply("svc:commercial_registration")).toEqual({ kind: "slot", slots: { service: "commercial_registration" } });
     expect(parseQuickReply("edit:city")).toEqual({ kind: "edit", slot: "city" });

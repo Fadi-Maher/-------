@@ -82,7 +82,7 @@ const CUSTOMER_TYPE_WORDS: Record<CustomerType, string[]> = {
 };
 
 const URGENCY_WORDS: Record<Urgency, string[]> = {
-  urgent: ["عاجل", "مستعجل", "ضروري", "اليوم", "بكره", "باسرع وقت", "بسرعه", "فوري", "خلال يومين", "48 ساعه", "urgent", "asap", "today", "tomorrow"],
+  urgent: ["عاجل", "عاجله", "عاجلا", "مستعجل", "ضروري", "اليوم", "بكره", "باسرع وقت", "بسرعه", "فوري", "خلال يومين", "48 ساعه", "urgent", "urgently", "asap", "as soon as possible", "immediately", "today", "tomorrow"],
   week: ["هالاسبوع", "خلال اسبوع", "اسبوع", "الاسبوع", "this week", "within a week", "week"],
   month: ["هالشهر", "خلال شهر", "شهر", "الشهر الجاي", "this month", "within a month", "month"],
   exploring: ["استفسار", "استفسر", "استكشاف", "مو مستعجل", "مب مستعجل", "اتعرف", "just exploring", "not sure", "exploring"],
@@ -108,19 +108,36 @@ function firstMatchingKey<K extends string>(variants: string[], table: Record<K,
   return undefined;
 }
 
-function parseAmount(value: string): number | null {
-  const match = toAsciiDigits(value)
-    .replace(/[,٬]/g, "")
-    .match(/(\d+(?:\.\d+)?)\s*(الف|ألف|آلاف|k)?/i);
-  if (!match) return null;
-  let amount = Number(match[1]);
-  if (match[2]) amount *= 1000;
-  return Number.isFinite(amount) ? amount : null;
+const THOUSANDS = "(الف|ألف|آلاف|الاف|k\\b)";
+const CURRENCY = "(?:ريال|ر\\.س|sar|riyals?)";
+/**
+ * Read the budget amount, preferring the number tied to a currency, a
+ * "thousand" word or the word "budget" — so "10 transactions… budget over
+ * 5000 SAR" reads 5000, not 10. A bare number is used only when the budget
+ * question is the one being answered.
+ */
+function parseAmount(value: string, allowBareNumber: boolean): number | null {
+  const text = toAsciiDigits(value).replace(/(\d)[,٬](?=\d{3}\b)/g, "$1");
+  const patterns = [
+    new RegExp(`(\\d+(?:\\.\\d+)?)\\s*${THOUSANDS}?\\s*${CURRENCY}`, "i"),
+    new RegExp(`${CURRENCY}\\s*(\\d+(?:\\.\\d+)?)\\s*${THOUSANDS}?`, "i"),
+    new RegExp(`(?:budget|ميزاني\\S*)\\D{0,25}?(\\d+(?:\\.\\d+)?)\\s*${THOUSANDS}?`, "i"),
+    new RegExp(`(\\d+(?:\\.\\d+)?)\\s*${THOUSANDS}`, "i"),
+  ];
+  if (allowBareNumber) patterns.push(new RegExp(`(\\d+(?:\\.\\d+)?)\\s*${THOUSANDS}?`, "i"));
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (!match) continue;
+    let amount = Number(match[1]);
+    if (match[2]) amount *= 1000;
+    if (Number.isFinite(amount)) return amount;
+  }
+  return null;
 }
 
-function extractBudget(raw: string, variants: string[]): Budget | undefined {
+function extractBudget(raw: string, variants: string[], pending: LeadField | null): Budget | undefined {
   if (variantsIncludeAny(variants, ["غير محدده", "ما ادري", "مدري", "مو محدد", "not decided", "no idea"])) return "unknown";
-  const amount = /ريال|sar|ر\.س|الف|ألف|budget|ميزاني/i.test(raw) ? parseAmount(raw) : null;
+  const amount = parseAmount(raw, pending === "budget");
   if (amount === null) return undefined;
   if (amount < 500) return "lt500";
   if (amount <= 2000) return "500_2000";
@@ -184,6 +201,9 @@ const NOT_A_NAME_INTENTS: Array<LeadIntent | "unknown"> = [
   "business_plan",
 ];
 
+/** "transactions a/per/each month", «معاملات في/كل الشهر», «معاملة بالشهر». */
+const MONTH_AS_VOLUME = /(transactions?|معامل\S*)\s+(?:a|per|each|every|in a|في|كل|بال|ب)?\s*(?:the\s+)?(month|شهر|الشهر)/i;
+
 export type ExtractionResult = { slots: LeadSlots; invalidPhone: boolean };
 
 /**
@@ -207,15 +227,16 @@ export function extractSlots(raw: string, pending: LeadField | null): Extraction
   if (customerType) slots.customerType = customerType;
 
   const urgency = firstMatchingKey(variants, URGENCY_WORDS);
-  // "monthly" talks about volume, not a deadline, unless we are asking the deadline.
-  if (urgency && !(urgency === "month" && pending !== "urgency" && variantsIncludeAny(variants, ["شهري", "شهريا", "monthly"]))) {
+  // "monthly" / "10 transactions a month" talk about volume, not a deadline, unless we are asking the deadline.
+  const monthIsVolume = variantsIncludeAny(variants, ["شهري", "شهريا", "monthly"]) || MONTH_AS_VOLUME.test(toAsciiDigits(raw));
+  if (urgency && !(urgency === "month" && pending !== "urgency" && monthIsVolume)) {
     slots.urgency = urgency;
   }
 
   const volume = extractVolume(raw, variants);
   if (volume && (pending === "volume" || volume !== "single")) slots.volume = volume;
 
-  const budget = extractBudget(raw, variants);
+  const budget = extractBudget(raw, variants, pending);
   if (budget && (budget !== "unknown" || pending === "budget")) slots.budget = budget;
 
   const city = LEAD_CITIES.find((entry) => entry.keywords.some((keyword) => variantsInclude(variants, keyword)));
