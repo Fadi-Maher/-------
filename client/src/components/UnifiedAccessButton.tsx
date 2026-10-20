@@ -7,16 +7,17 @@ export function UnifiedAccessButton({ compact = false }: { compact?: boolean }) 
   const { isEnglish } = useLanguage();
   const copy = isEnglish
     ? { trigger: "Sign in", title: "How would you like to continue?", customer: "Service requester", agent: "Transaction specialist" }
-    : { trigger: "الدخول", title: "كيف تريد المتابعة؟", customer: "طالب خدمة", agent: "معقب" };
+    : { trigger: "تسجيل الدخول", title: "كيف تريد المتابعة؟", customer: "طالب خدمة", agent: "معقب" };
 
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <button type="button" className={compact ? "grid h-10 w-10 place-items-center rounded-xl bg-[#eaf3ff] text-[#0878f9]" : "inline-flex items-center gap-2 rounded-xl border border-[#b7dbff] bg-[#f7fbff] px-3.5 py-2.5 text-sm font-extrabold text-[#0878f9] shadow-[0_4px_12px_rgba(8,120,249,.08)] transition-colors hover:border-[#0878f9] hover:bg-[#eef7ff]"} aria-label={copy.trigger}>
-          {compact ? <UserRound className="h-4 w-4" /> : <>{copy.trigger}<UserRound className="h-4 w-4" /></>}
+        <button type="button" className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#b7dbff] bg-[#f7fbff] text-sm font-extrabold text-[#075aa8] shadow-[0_4px_12px_rgba(8,120,249,.08)] transition-colors hover:border-[#0878f9] hover:bg-[#eef7ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0878f9] focus-visible:ring-offset-2 ${compact ? "w-full px-3" : "shrink-0 px-3.5"}`} aria-label={copy.trigger}>
+          <UserRound className="h-4 w-4" aria-hidden="true" />
+          <span>{copy.trigger}</span>
         </button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg rounded-[2rem] border-[#dce8f6] p-6 sm:p-8" dir={isEnglish ? "ltr" : "rtl"}>
+      <DialogContent aria-describedby={undefined} className="max-w-lg rounded-[2rem] border-[#dce8f6] p-6 sm:p-8" dir={isEnglish ? "ltr" : "rtl"}>
         <DialogHeader className={isEnglish ? "text-left" : "text-right"}>
           <DialogTitle className="font-display text-2xl font-black text-[#102a43]">{copy.title}</DialogTitle>
         </DialogHeader>

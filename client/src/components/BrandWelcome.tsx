@@ -53,6 +53,8 @@ function WelcomeExperience({
         start: "Let's get started",
         skip: "Skip welcome",
         close: "Close welcome",
+        signIn: "Sign in",
+        createAccount: "Create account",
         language: "التبديل إلى العربية",
         languageButton: "العربية",
         footnote:
@@ -85,6 +87,8 @@ function WelcomeExperience({
         start: "لنبدأ",
         skip: "تخطي الترحيب",
         close: "إغلاق الترحيب",
+        signIn: "تسجيل الدخول",
+        createAccount: "إنشاء حساب",
         language: "Switch to English",
         languageButton: "English",
         footnote: "ترحيب مختصر، وطلباتك دائمًا على بُعد خطوة.",
@@ -159,6 +163,10 @@ function WelcomeExperience({
           </Button>
         </div>
       </header>
+      <nav aria-label={isEnglish ? "Account access" : "الدخول والتسجيل"} className="mt-3 flex flex-wrap justify-end gap-2">
+        <a href="/login" onClick={() => markWelcomeSeen(browserWelcomeStorage())} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#b7dbff] bg-white px-4 text-sm font-extrabold text-[#075aa8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0878f9] focus-visible:ring-offset-2">{copy.signIn}</a>
+        <a href="/customer-signup" onClick={() => markWelcomeSeen(browserWelcomeStorage())} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#0668d9] px-4 text-sm font-extrabold text-white hover:bg-[#0457ba] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0878f9] focus-visible:ring-offset-2">{copy.createAccount}</a>
+      </nav>
       <div className="grid flex-1 content-center gap-6 py-5 sm:gap-10 sm:py-8 lg:grid-cols-[.95fr_1.05fr] lg:items-center lg:gap-14">
         <aside
           className="relative isolate flex flex-col items-center justify-center overflow-hidden rounded-[1.75rem] bg-[#0a2a56] px-6 py-6 text-center text-white shadow-[0_20px_60px_rgba(9,53,105,.16)] sm:px-10 sm:py-12 lg:min-h-[460px]"
