@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  type ComponentProps,
+  type ComponentType,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import {
   AlertCircle,
   BadgeCheck,
@@ -19,12 +27,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/BrandMark";
-import {
-  CustomerAuthForm,
-  normalizeSaudiPhone,
-  type CustomerRecord,
-} from "@/components/CustomerAuthForm";
+import { normalizeSaudiPhone } from "@/components/CustomerAuthForm";
 import { AgentJoinForm } from "@/components/AgentJoinForm";
+import {
+  CompletePhoneProfile,
+  type PhoneProfileValues,
+} from "@/components/CompletePhoneProfile";
 import {
   PhoneOtpStep,
   type PhoneOtpChallenge,
@@ -45,13 +53,18 @@ import {
 } from "@/lib/authFlow";
 import { useLocation } from "wouter";
 
-type Phase = "phone" | "otp" | "role" | "complete";
+type Phase = "phone" | "otp" | "role" | "profile" | "complete";
 type Verified = {
   phone: string;
   verificationToken: string;
   accessToken: string;
   expiresAt: number;
 };
+// The parent agent adds this optional handoff prop to AgentJoinForm. Keeping the
+// narrow compatibility type makes this modal safe while that component lands.
+const AgentJoinFormWithProfile = AgentJoinForm as ComponentType<
+  ComponentProps<typeof AgentJoinForm> & { initialProfile?: PhoneProfileValues }
+>;
 function actionError(error: unknown, fallback: string, isEnglish: boolean) {
   if (!(error instanceof Error) || !error.message) return fallback;
   if (isEnglish && /[\u0600-\u06ff]/.test(error.message)) {
@@ -72,8 +85,8 @@ export function AuthModal() {
   const requestCode = trpc.phoneAuth.requestCode.useMutation();
   const resendCode = trpc.phoneAuth.resendCode.useMutation();
   const verifyCode = trpc.phoneAuth.verifyCode.useMutation();
-  const findCustomer = trpc.customers.findByPhoneAccessToken.useMutation();
   const agentSignIn = trpc.phoneAuth.agentSignIn.useMutation();
+  const savePhoneProfileMutation = trpc.phoneProfile.save.useMutation();
   const fieldId = useId();
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>("phone");
@@ -85,6 +98,10 @@ export function AuthModal() {
   const [notice, setNotice] = useState("");
   const [challenge, setChallenge] = useState<PhoneOtpChallenge | null>(null);
   const [verified, setVerified] = useState<Verified | null>(null);
+  const [savedProfile, setSavedProfile] = useState<PhoneProfileValues | null>(
+    null
+  );
+  const [isNewCustomer, setIsNewCustomer] = useState(false);
   const [code, setCode] = useState("");
   const [clockOffset, setClockOffset] = useState(0);
   const [now, setNow] = useState(Date.now());
@@ -133,6 +150,8 @@ export function AuthModal() {
       setCode("");
       setChallenge(null);
       setVerified(null);
+      setSavedProfile(null);
+      setIsNewCustomer(false);
       setClockOffset(0);
       verifyKeyRef.current = "";
       setGeneration(value => value + 1);
@@ -215,6 +234,8 @@ export function AuthModal() {
     setCode("");
     setChallenge(null);
     setVerified(null);
+    setSavedProfile(null);
+    setIsNewCustomer(false);
     verifyKeyRef.current = "";
     setGeneration(value => value + 1);
   }, []);
@@ -224,6 +245,8 @@ export function AuthModal() {
     setNow(value.serverNow);
     setCode("");
     setVerified(null);
+    setSavedProfile(null);
+    setIsNewCustomer(false);
     verifyKeyRef.current = crypto.randomUUID();
   };
   const startCode = async () => {
@@ -374,35 +397,16 @@ export function AuthModal() {
     if (!beginAction()) return;
     try {
       const proof = ensureVerified();
-      if (role === "customer") {
-        const existing = (await findCustomer.mutateAsync({
-          accessToken: proof.accessToken,
-        })) as CustomerRecord | null;
-        if (existing) {
-          saveCustomerSession({
-            name: existing.fullName,
-            phone,
-            accessToken: proof.accessToken,
-          });
-          finishSignIn(
-            { role: "customer", name: existing.fullName },
-            isEnglish,
-            navigate
-          );
-        } else {
-          setAudience("customer");
-          setPhase("complete");
-        }
-      } else {
-        const status = await utils.agentApplications.status.fetch({
-          verificationToken: proof.verificationToken,
-        });
-        if (status.hasActiveAgent) await finishAgent();
-        else {
-          setAudience("agent");
-          setPhase("complete");
-        }
-      }
+      // Every signed-in phone, including an existing customer or active agent,
+      // sees this one profile step before any redirect or join form.
+      const profile = await utils.phoneProfile.get.fetch({
+        verificationToken: proof.verificationToken,
+        role,
+      });
+      setAudience(role);
+      setSavedProfile(profile.profile);
+      setIsNewCustomer(profile.isNewCustomer);
+      setPhase("profile");
     } catch (failure) {
       setError(
         actionError(
@@ -410,6 +414,69 @@ export function AuthModal() {
           isEnglish
             ? "We could not continue. Try again."
             : "تعذر المتابعة. حاول مرة أخرى.",
+          isEnglish
+        )
+      );
+    } finally {
+      updateBusy(false);
+    }
+  };
+  const saveProfile = async (
+    values: PhoneProfileValues & { acceptedTerms: boolean }
+  ) => {
+    if (!audience || !beginAction()) return;
+    try {
+      const proof = ensureVerified();
+      const saved = await savePhoneProfileMutation.mutateAsync({
+        verificationToken: proof.verificationToken,
+        role: audience,
+        fullName: values.fullName,
+        email: values.email,
+        acceptedTerms: values.acceptedTerms,
+      });
+      setSavedProfile(saved.profile);
+
+      if (audience === "customer") {
+        if (!saved.customer) {
+          throw new Error(
+            isEnglish
+              ? "Your customer account could not be saved. Please try again."
+              : "تعذر حفظ حساب العميل. حاول مرة أخرى."
+          );
+        }
+        // The established customer session uses the OTP-issued access token. The
+        // verification ticket is never persisted in browser storage.
+        saveCustomerSession({
+          name: saved.customer.fullName,
+          phone: saved.customer.phone || proof.phone,
+          accessToken: proof.accessToken,
+        });
+        finishSignIn(
+          {
+            role: "customer",
+            name: saved.customer.fullName,
+            isNew: isNewCustomer,
+          },
+          isEnglish,
+          navigate
+        );
+        return;
+      }
+
+      if (saved.hasActiveAgent) {
+        await finishAgent();
+        return;
+      }
+      // A pending/rejected/unprovisioned agent is only staged. AgentJoinForm
+      // continues the request; it never receives a session or activated role.
+      setPhase("complete");
+    } catch (failure) {
+      setError(
+        actionError(
+          failure,
+          isEnglish
+            ? "We could not save your profile. Try again."
+            : "تعذر حفظ بياناتك. حاول مرة أخرى.",
           isEnglish
         )
       );
@@ -439,6 +506,8 @@ export function AuthModal() {
     if (busyRef.current) return;
     setPhase("role");
     setAudience(null);
+    setSavedProfile(null);
+    setIsNewCustomer(false);
     setError("");
     setGeneration(value => value + 1);
   };
@@ -451,18 +520,23 @@ export function AuthModal() {
         ? isEnglish
           ? "Verify your mobile"
           : "رمز التحقق"
-        : phase === "role"
+      : phase === "role"
           ? isEnglish
             ? "Choose your account type"
             : "اختر نوع حسابك"
-          : audience === "agent"
+          : phase === "profile"
+            ? isEnglish
+              ? "Complete your profile"
+              : "أكمل بياناتك"
+            : audience === "agent"
             ? isEnglish
               ? "Agent join request"
               : "طلب انضمام معقب"
             : isEnglish
               ? "Complete your profile"
               : "أكمل بياناتك";
-  const stepIndex = phase === "phone" ? 0 : phase === "otp" ? 1 : 2;
+  const stepIndex =
+    phase === "phone" ? 0 : phase === "otp" ? 1 : phase === "role" ? 2 : 3;
 
   return (
     <Dialog
@@ -539,24 +613,24 @@ export function AuthModal() {
         </DialogHeader>
         <ol
           aria-label={isEnglish ? "Account access steps" : "خطوات الدخول"}
-          className="grid grid-cols-3 gap-1.5 rounded-2xl border border-[#e3eef9] bg-[#f5f9fd] p-2"
+          className="grid grid-cols-4 gap-1 rounded-2xl border border-[#e3eef9] bg-[#f5f9fd] p-1.5 sm:gap-1.5 sm:p-2"
         >
           {(isEnglish
-            ? ["Mobile", "Verify", "Account type"]
-            : ["الجوال", "التحقق", "نوع الحساب"]
+            ? ["Mobile", "Code", "Type", "Profile"]
+            : ["الجوال", "الرمز", "النوع", "البيانات"]
           ).map((label, index) => (
             <li
               key={label}
               aria-current={index === stepIndex ? "step" : undefined}
-              className={`flex min-w-0 items-center justify-center gap-1.5 rounded-xl px-1 py-2 text-center text-[11px] font-extrabold ${index === stepIndex ? "bg-white text-[#075aa8] shadow-sm" : index < stepIndex ? "text-[#216547]" : "text-[#60778f]"}`}
+              className={`flex min-w-0 items-center justify-center gap-0.5 rounded-xl px-0.5 py-2 text-center text-[9px] font-extrabold sm:gap-1.5 sm:px-1 sm:text-[11px] ${index === stepIndex ? "bg-white text-[#075aa8] shadow-sm" : index < stepIndex ? "text-[#216547]" : "text-[#60778f]"}`}
             >
               <span
                 aria-hidden="true"
-                className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-current"
+                className="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-current sm:h-5 sm:w-5"
               >
-                {index < stepIndex ? <Check className="h-3 w-3" /> : index + 1}
+                {index < stepIndex ? <Check className="h-2.5 w-2.5 sm:h-3 sm:w-3" /> : index + 1}
               </span>
-              <span>{label}</span>
+              <span className="truncate">{label}</span>
             </li>
           ))}
         </ol>
@@ -762,7 +836,7 @@ export function AuthModal() {
               </p>
             )}
           </div>
-        ) : verified ? (
+        ) : phase === "profile" && verified && audience ? (
           <div className="min-w-0 space-y-4">
             <button
               type="button"
@@ -785,25 +859,47 @@ export function AuthModal() {
                 {error}
               </p>
             )}
-            {audience === "customer" ? (
-              <CustomerAuthForm
-                key={`customer-${generation}`}
-                mode="signin"
-                variant="modal"
-                initialPhone={phone}
-                verifiedAccessToken={verified.accessToken}
-                onChangePhone={changePhone}
-                onBusyChange={updateBusy}
-              />
-            ) : (
-              <AgentJoinForm
-                key={`agent-${generation}`}
-                phone={phone}
-                verificationToken={verified.verificationToken}
-                onBusyChange={updateBusy}
-                onSignIn={() => void approvedSignIn()}
-              />
+            <CompletePhoneProfile
+              key={`profile-${audience}-${generation}`}
+              role={audience}
+              phone={phone}
+              initialProfile={savedProfile}
+              isNewCustomer={audience === "customer" && isNewCustomer}
+              busy={busy}
+              onSave={saveProfile}
+            />
+          </div>
+        ) : phase === "complete" && verified && audience === "agent" ? (
+          <div className="min-w-0 space-y-4">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={changeRole}
+              className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-xs font-bold text-[#075aa8] hover:bg-[#f1f7ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0878f9] disabled:opacity-40"
+            >
+              {isEnglish ? (
+                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
+              )}
+              {isEnglish ? "Change account type" : "تغيير نوع الحساب"}
+            </button>
+            {error && (
+              <p
+                role="alert"
+                className="rounded-xl bg-[#fff2f4] px-3 py-2 text-xs font-bold leading-6 text-[#a9323e]"
+              >
+                {error}
+              </p>
             )}
+            <AgentJoinFormWithProfile
+              key={`agent-${generation}`}
+              phone={phone}
+              verificationToken={verified.verificationToken}
+              initialProfile={savedProfile ?? undefined}
+              onBusyChange={updateBusy}
+              onSignIn={() => void approvedSignIn()}
+            />
           </div>
         ) : null}
       </DialogContent>

@@ -9,7 +9,8 @@ import {
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { getDb } from "./db";
-
+import { createApplicationNotifications } from "./adminApplicationNotifications";
+import { attachDocuments } from "./agentApplicationDocuments";
 export type AgentApplicationPermissions = {
   canViewAssigned: boolean;
   canUpdateStatus: boolean;
@@ -220,7 +221,8 @@ export async function getAgentApplicationStatus(phone: string) {
  */
 export async function submitAgentApplication(
   phone: string,
-  rawInput: SubmitAgentApplicationInput
+  rawInput: SubmitAgentApplicationInput,
+  documentIds: readonly string[] = []
 ) {
   const input = normalizeSubmission(phone, rawInput);
   const db = await getDb();
@@ -260,7 +262,11 @@ export async function submitAgentApplication(
       )[0];
       // Pending requests are immutable retries. Resolved rows also remain immutable:
       // submit never changes a review result or grants access.
-      if (existing) return existing;
+      if (existing) {
+        if (documentIds.length)
+          await attachDocuments(tx, phone, existing.id, documentIds);
+        return existing;
+      }
 
       const now = Date.now();
       const inserted = await tx.insert(agentApplications).values({
@@ -271,6 +277,9 @@ export async function submitAgentApplication(
         status: "pending",
       });
       const id = Number(inserted[0].insertId);
+      if (documentIds.length)
+        await attachDocuments(tx, phone, id, documentIds, now);
+      await createApplicationNotifications(tx, id, now);
       return (
         await tx
           .select()
@@ -282,7 +291,13 @@ export async function submitAgentApplication(
   } catch (error) {
     if (!isDuplicateError(error)) throw error;
     const existing = await findApplicationByPhone(phone);
-    if (existing) return existing;
+    if (existing) {
+      if (documentIds.length)
+        await db.transaction(tx =>
+          attachDocuments(tx, phone, existing.id, documentIds)
+        );
+      return existing;
+    }
     throw conflict("تعذر حفظ طلب الانضمام بسبب تعارض متزامن. أعد المحاولة.");
   }
 }

@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { trpc } from "@/lib/trpc";
+import { AgentDocumentUploader } from "@/components/AgentDocumentUploader";
 import {
   AlertCircle,
   BadgeCheck,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import React, {
   type FormEvent,
+  useCallback,
   useEffect,
   useId,
   useRef,
@@ -28,6 +30,7 @@ import React, {
 export type AgentJoinFormProps = {
   verificationToken: string;
   phone: string;
+  initialProfile?: { fullName: string; email: string };
   onBusyChange?: (busy: boolean) => void;
   onSignIn?: () => void;
 };
@@ -80,6 +83,7 @@ function isExpiredToken(error: unknown) {
 export function AgentJoinForm({
   verificationToken,
   phone,
+  initialProfile,
   onBusyChange,
   onSignIn,
 }: AgentJoinFormProps) {
@@ -94,7 +98,12 @@ export function AgentJoinForm({
   const status = trpc.agentApplications.status.useQuery({ verificationToken });
   const submit = trpc.agentApplications.submit.useMutation();
   const submittingRef = useRef(false);
-  const [values, setValues] = useState<JoinFormValues>(emptyValues);
+  const [values, setValues] = useState<JoinFormValues>(() => ({
+    ...emptyValues,
+    ...initialProfile,
+  }));
+  const [documentIds, setDocumentIds] = useState<string[]>([]);
+  const [documentsBusy, setDocumentsBusy] = useState(false);
   const [formError, setFormError] = useState("");
   const [requestError, setRequestError] = useState("");
   const [receipt, setReceipt] = useState<AgentApplication | null>(null);
@@ -192,9 +201,9 @@ export function AgentJoinForm({
       };
 
   useEffect(() => {
-    onBusyChange?.(submit.isPending);
+    onBusyChange?.(submit.isPending || documentsBusy);
     return () => onBusyChange?.(false);
-  }, [onBusyChange, submit.isPending]);
+  }, [onBusyChange, submit.isPending, documentsBusy]);
 
   const application = (status.data?.application ?? receipt) as
     | AgentApplication
@@ -212,7 +221,7 @@ export function AgentJoinForm({
 
   const submitApplication = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (submittingRef.current || submit.isPending) return;
+    if (submittingRef.current || submit.isPending || documentsBusy) return;
 
     const fullName = values.fullName.trim();
     const email = values.email.trim();
@@ -256,6 +265,7 @@ export function AgentJoinForm({
         experienceYears,
         ...(notes ? { notes } : {}),
         consent: true,
+        documentIds,
       });
       setReceipt(created as AgentApplication);
       setValues(emptyValues);
@@ -271,44 +281,80 @@ export function AgentJoinForm({
     }
   };
 
-  const StatusCard = ({
-    icon,
-    title,
-    children,
-    tone = "blue",
-  }: {
-    icon: React.ReactNode;
-    title: string;
-    children: React.ReactNode;
-    tone?: "blue" | "green" | "red";
-  }) => {
-    const tones = {
-      blue: "border-[#b7dbff] bg-[#f6fbff] text-[#0668d9]",
-      green: "border-[#cce9c9] bg-[#f4fcf2] text-[#297334]",
-      red: "border-[#f3c8cd] bg-[#fff7f7] text-[#b13b47]",
-    };
-    return (
-      <section
-        className={`min-w-0 w-full max-w-xl rounded-3xl border p-6 shadow-[0_18px_55px_rgba(27,79,129,.10)] motion-safe:transition-transform motion-safe:duration-200 ${tones[tone]}`}
-        dir={isEnglish ? "ltr" : "rtl"}
-      >
-        <div className="flex items-start gap-3">
-          <span
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white shadow-sm"
-            aria-hidden="true"
-          >
-            {icon}
-          </span>
-          <div className="min-w-0">
-            <h2 className="font-display text-xl font-black text-[#102a43]">
-              {title}
-            </h2>
-            {children}
-          </div>
-        </div>
-      </section>
-    );
+  const sendAdditionalDocuments = async () => {
+    if (
+      !application ||
+      application.status !== "pending" ||
+      !documentIds.length ||
+      documentsBusy ||
+      submit.isPending ||
+      submittingRef.current
+    )
+      return;
+    submittingRef.current = true;
+    setRequestError("");
+    try {
+      await submit.mutateAsync({
+        verificationToken,
+        fullName: application.fullName,
+        email: application.email,
+        city: application.city,
+        specialty: application.specialty,
+        experienceYears: application.experienceYears,
+        ...(application.notes ? { notes: application.notes } : {}),
+        consent: true,
+        documentIds,
+      });
+      await status.refetch();
+      setDocumentIds([]);
+    } catch (failure) {
+      setRequestError(messageFrom(failure, copy.submitError));
+    } finally {
+      submittingRef.current = false;
+    }
   };
+
+  const StatusCard = useCallback(
+    ({
+      icon,
+      title,
+      children,
+      tone = "blue",
+    }: {
+      icon: React.ReactNode;
+      title: string;
+      children: React.ReactNode;
+      tone?: "blue" | "green" | "red";
+    }) => {
+      const tones = {
+        blue: "border-[#b7dbff] bg-[#f6fbff] text-[#0668d9]",
+        green: "border-[#cce9c9] bg-[#f4fcf2] text-[#297334]",
+        red: "border-[#f3c8cd] bg-[#fff7f7] text-[#b13b47]",
+      };
+      return (
+        <section
+          className={`min-w-0 w-full max-w-xl rounded-3xl border p-6 shadow-[0_18px_55px_rgba(27,79,129,.10)] motion-safe:transition-transform motion-safe:duration-200 ${tones[tone]}`}
+          dir={isEnglish ? "ltr" : "rtl"}
+        >
+          <div className="flex items-start gap-3">
+            <span
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white shadow-sm"
+              aria-hidden="true"
+            >
+              {icon}
+            </span>
+            <div className="min-w-0">
+              <h2 className="font-display text-xl font-black text-[#102a43]">
+                {title}
+              </h2>
+              {children}
+            </div>
+          </div>
+        </section>
+      );
+    },
+    [isEnglish]
+  );
 
   if (status.isLoading) {
     return (
@@ -436,6 +482,33 @@ export function AgentJoinForm({
           <span className="text-[#60778f]">{copy.reference}: </span>
           <span dir="ltr">{application.reference}</span>
         </p>
+        <div className="mt-4 space-y-3">
+          <AgentDocumentUploader
+            key={`pending-documents-${submit.isSuccess}`}
+            verificationToken={verificationToken}
+            onDocumentsChange={setDocumentIds}
+            onBusyChange={setDocumentsBusy}
+            disabled={submit.isPending}
+          />
+          <Button
+            type="button"
+            onClick={() => void sendAdditionalDocuments()}
+            disabled={!documentIds.length || documentsBusy || submit.isPending}
+            className="h-auto min-h-11 w-full whitespace-normal rounded-xl bg-[#0668d9] text-xs font-bold text-white"
+          >
+            {isEnglish
+              ? "Send additional documents for review"
+              : "إرسال المستندات الإضافية للمراجعة"}
+          </Button>
+          {requestError ? (
+            <p
+              role="alert"
+              className="rounded-xl bg-[#fff2f4] p-3 text-xs font-bold leading-6 text-[#a9323e]"
+            >
+              {requestError}
+            </p>
+          ) : null}
+        </div>
         <Button
           type="button"
           variant="outline"
@@ -479,33 +552,53 @@ export function AgentJoinForm({
       </div>
 
       <form className="mt-6 space-y-4" onSubmit={submitApplication} noValidate>
+        {initialProfile ? (
+          <div
+            className="min-w-0 rounded-xl border border-[#cce7d9] bg-[#f4faf6] p-3 text-xs leading-6 text-[#216547]"
+            aria-label={isEnglish ? "Profile details" : "بيانات الملف الشخصي"}
+          >
+            <p className="font-extrabold">{initialProfile.fullName}</p>
+            <p dir="ltr" className="break-all">
+              {initialProfile.email}
+            </p>
+            <p>
+              {isEnglish
+                ? "From your profile step — no need to enter it again."
+                : "من خطوة الملف الشخصي، لا تحتاج إدخالها مجددًا."}
+            </p>
+          </div>
+        ) : null}
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="grid gap-2">
-            <Label htmlFor={fullNameId}>{copy.fullName}</Label>
-            <Input
-              id={fullNameId}
-              autoComplete="name"
-              disabled={submit.isPending}
-              value={values.fullName}
-              onChange={event => update("fullName", event.target.value)}
-              aria-invalid={Boolean(formError)}
-              className="h-11 rounded-xl"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor={emailId}>{copy.email}</Label>
-            <Input
-              id={emailId}
-              type="email"
-              dir="ltr"
-              autoComplete="email"
-              disabled={submit.isPending}
-              value={values.email}
-              onChange={event => update("email", event.target.value)}
-              aria-invalid={Boolean(formError)}
-              className="h-11 rounded-xl text-left"
-            />
-          </div>
+          {!initialProfile ? (
+            <>
+              <div className="grid gap-2">
+                <Label htmlFor={fullNameId}>{copy.fullName}</Label>
+                <Input
+                  id={fullNameId}
+                  autoComplete="name"
+                  disabled={submit.isPending}
+                  value={values.fullName}
+                  onChange={event => update("fullName", event.target.value)}
+                  aria-invalid={Boolean(formError)}
+                  className="h-11 rounded-xl"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor={emailId}>{copy.email}</Label>
+                <Input
+                  id={emailId}
+                  type="email"
+                  dir="ltr"
+                  autoComplete="email"
+                  disabled={submit.isPending}
+                  value={values.email}
+                  onChange={event => update("email", event.target.value)}
+                  aria-invalid={Boolean(formError)}
+                  className="h-11 rounded-xl text-left"
+                />
+              </div>
+            </>
+          ) : null}
           <div className="grid gap-2">
             <Label htmlFor={cityId}>{copy.city}</Label>
             <Input
@@ -564,6 +657,12 @@ export function AgentJoinForm({
             {copy.notesHint} ({values.notes.length}/1000)
           </p>
         </div>
+        <AgentDocumentUploader
+          verificationToken={verificationToken}
+          onDocumentsChange={setDocumentIds}
+          onBusyChange={setDocumentsBusy}
+          disabled={submit.isPending}
+        />
         <div className="flex items-start gap-3 rounded-xl border border-[#dce8f6] bg-[#f8fbff] p-3">
           <Checkbox
             id={consentId}
@@ -589,7 +688,7 @@ export function AgentJoinForm({
           </p>
         ) : null}
         <Button
-          disabled={submit.isPending}
+          disabled={submit.isPending || documentsBusy}
           className="h-auto min-h-12 w-full whitespace-normal rounded-xl bg-[#0668d9] font-extrabold text-white shadow-[0_4px_0_#0457ba] motion-safe:transition-transform motion-safe:duration-150 active:scale-[.98] hover:bg-[#055bbd]"
         >
           {submit.isPending ? (

@@ -85,6 +85,43 @@ export const agentApplications = mysqlTable("agent_applications", {
   statusCreatedIndex: index("agent_applications_status_created_idx").on(table.status, table.createdAt),
 }));
 
+export const adminApplicationNotifications = mysqlTable("admin_application_notifications", {
+  id: int("id").autoincrement().primaryKey(),
+  recipientUserId: int("recipientUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  applicationId: int("applicationId").notNull(),
+  createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  readAt: bigint("readAt", { mode: "number" }),
+}, table => ({
+  applicationForeignKey: foreignKey({ name: "admin_app_notice_application_fk", columns: [table.applicationId], foreignColumns: [agentApplications.id] }).onDelete("cascade"),
+  recipientApplicationUnique: uniqueIndex("admin_app_notice_recipient_app_unique").on(table.recipientUserId, table.applicationId),
+  recipientCreatedIndex: index("admin_app_notice_recipient_created_idx").on(table.recipientUserId, table.createdAt),
+}));
+
+export const agentApplicationDocuments = mysqlTable("agent_application_documents", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  phone: varchar("phone", { length: 40 }).notNull(),
+  applicationId: int("applicationId"),
+  kind: mysqlEnum("kind", ["national_id", "work_license"]).notNull(),
+  fileName: varchar("fileName", { length: 160 }).notNull(),
+  mimeType: varchar("mimeType", { length: 80 }).notNull(),
+  size: int("size").notNull(),
+  storageKey: varchar("storageKey", { length: 600 }).notNull(),
+  createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+}, table => ({
+  applicationForeignKey: foreignKey({ name: "agent_app_document_application_fk", columns: [table.applicationId], foreignColumns: [agentApplications.id] }).onDelete("cascade"),
+  phoneCreatedIndex: index("agent_app_doc_phone_created_idx").on(table.phone, table.createdAt),
+  applicationIndex: index("agent_app_doc_application_idx").on(table.applicationId),
+}));
+
+export const phoneProfiles = mysqlTable("phone_profiles", {
+  id: int("id").autoincrement().primaryKey(),
+  phone: varchar("phone", { length: 40 }).notNull(),
+  role: mysqlEnum("role", ["customer", "agent"]).notNull(),
+  fullName: varchar("fullName", { length: 160 }).notNull(),
+  email: varchar("email", { length: 320 }).notNull(),
+  updatedAt: bigint("updatedAt", { mode: "number" }).notNull(),
+}, table => ({ phoneRoleUnique: uniqueIndex("phone_profile_phone_role_unique").on(table.phone, table.role) }));
+
 export const customers = mysqlTable("customers", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").references(() => users.id, { onDelete: "set null" }).unique(),

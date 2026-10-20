@@ -1,7 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { COOKIE_NAME, UNAUTHED_ERR_MSG } from '@shared/const';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { httpBatchLink, TRPCClientError } from "@trpc/client";
+import { httpBatchLink, httpSubscriptionLink, splitLink, TRPCClientError } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
@@ -49,9 +49,11 @@ queryClient.getMutationCache().subscribe(event => {
   }
 });
 
-const trpcClient = trpc.createClient({
-  links: [
-    httpBatchLink({
+const supportsHttpSubscriptions =
+  typeof window !== "undefined" && typeof window.EventSource !== "undefined";
+
+const createHttpBatchLink = () =>
+  httpBatchLink({
       url: "/api/trpc",
       transformer: superjson,
       headers() {
@@ -80,8 +82,24 @@ const trpcClient = trpc.createClient({
           credentials: "include",
         });
       },
-    }),
-  ],
+    });
+
+const trpcClient = trpc.createClient({
+  links: supportsHttpSubscriptions
+    ? [
+        splitLink({
+          condition: operation => operation.type === "subscription",
+          true: httpSubscriptionLink({
+            url: "/api/trpc",
+            transformer: superjson,
+            // EventSource cannot carry the preview Bearer header. Same-origin
+            // cookies are deliberately used instead; no token enters the URL.
+            eventSourceOptions: { withCredentials: true },
+          }),
+          false: createHttpBatchLink(),
+        }),
+      ]
+    : [createHttpBatchLink()],
 });
 
 createRoot(document.getElementById("root")!).render(

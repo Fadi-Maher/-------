@@ -8,6 +8,7 @@ import {
   toPublicAgentApplication,
 } from "./agentApplicationsDb";
 import { verifyPhoneLoginTicket } from "./phoneLoginTicket";
+import { publishApplicationNotification } from "./adminApplicationNotifications";
 
 const verificationToken = z.string().min(1).max(500);
 const permissions = z.object({
@@ -36,6 +37,7 @@ export const agentApplicationSubmitInput = z.object({
     .optional()
     .transform(value => value || undefined),
   consent: z.literal(true),
+  documentIds: z.array(z.string().uuid()).max(2).default([]),
 });
 
 export const agentApplicationReviewInput = z
@@ -78,14 +80,21 @@ export const agentApplicationsRouter = router({
       // Do not accept a phone in this payload. The signed, short-lived login ticket
       // is verified before any database access and is its sole source of identity.
       const phone = verifyPhoneLoginTicket(input.verificationToken);
-      return submitAgentApplication(phone, {
-        fullName: input.fullName,
-        email: input.email,
-        city: input.city,
-        specialty: input.specialty,
-        experienceYears: input.experienceYears,
-        notes: input.notes,
-      }).then(toPublicAgentApplication);
+      return submitAgentApplication(
+        phone,
+        {
+          fullName: input.fullName,
+          email: input.email,
+          city: input.city,
+          specialty: input.specialty,
+          experienceYears: input.experienceYears,
+          notes: input.notes,
+        },
+        input.documentIds
+      ).then(application => {
+        publishApplicationNotification();
+        return toPublicAgentApplication(application);
+      });
     }),
 
   list: adminProcedure.query(async () =>

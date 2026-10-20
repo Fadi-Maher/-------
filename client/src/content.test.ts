@@ -29,6 +29,10 @@ const customerNotificationCenter = readFileSync(new URL("./components/CustomerNo
 const globalStyles = readFileSync(new URL("./index.css", import.meta.url), "utf8");
 const unifiedAccessButton = readFileSync(new URL("./components/UnifiedAccessButton.tsx", import.meta.url), "utf8");
 const authModal = readFileSync(new URL("./components/AuthModal.tsx", import.meta.url), "utf8");
+const completePhoneProfile = readFileSync(new URL("./components/CompletePhoneProfile.tsx", import.meta.url), "utf8");
+const phoneProfileRouter = readFileSync(new URL("../../server/phoneProfileRouter.ts", import.meta.url), "utf8");
+const agentDocumentsRouter = readFileSync(new URL("../../server/agentApplicationDocumentsRouter.ts", import.meta.url), "utf8");
+const agentDocumentsContract = readFileSync(new URL("../../shared/agentDocuments.ts", import.meta.url), "utf8");
 const accessLogin = readFileSync(new URL("./pages/AccessLogin.tsx", import.meta.url), "utf8");
 const agentLogin = ["./pages/AgentLogin.tsx", "./components/AgentAuthForm.tsx"].map(path => readFileSync(new URL(path, import.meta.url), "utf8")).join("\n");
 const customerQuotePanel = readFileSync(new URL("./components/CustomerQuotePanel.tsx", import.meta.url), "utf8");
@@ -191,29 +195,37 @@ describe("النصوص العامة لمعاملاتي", () => {
     expect(publicHeader).not.toContain('data-auth-trigger="signup"');
   });
 
-  it("يبدأ بالجوال ثم يعرض عميل ومعقب ويمرر الرقم دون تكرار إدخاله", () => {
-    expect(authModal).toContain('"Customer" : "عميل"');
-    expect(authModal).toContain('"Agent" : "معقب"');
+  it("يفرض ملفًا شخصيًا بعد OTP والدور لكل عميل أو معقب قبل أي توجيه", () => {
     expect(authModal).toContain('useState<Phase>("phone")');
     expect(authModal).toContain('setPhase("role")');
-    expect(authModal).toContain('initialPhone={phone}');
-    expect(authModal).toContain('onChangePhone={changePhone}');
-    expect(authModal).not.toContain("customerHint");
-    expect(authModal).not.toContain("agentHint");
-    expect(authModal).toContain('DialogDescription className="sr-only"');
-    expect(authModal).not.toContain("اختر نوع الحساب. حسابات الموظفين ينشئها ويديرها المالك فقط");
-    expect(authModal).not.toContain("Choose your account type. Employee accounts are created and managed by the owner only");
+    expect(authModal).toContain('setPhase("profile")');
+    expect(authModal).toContain("utils.phoneProfile.get.fetch");
+    expect(authModal).toContain("trpc.phoneProfile.save.useMutation");
+    expect(authModal).toContain("<CompletePhoneProfile");
+    expect(authModal).toContain("initialProfile={savedProfile");
+    expect(authModal).toContain("initialProfile={savedProfile ?? undefined}");
     expect(authModal).toContain('data-account-choice="customer"');
     expect(authModal).toContain('data-account-choice="agent"');
-    expect(accessLogin).toContain("text-2xl font-black text-[#102a43] sm:text-3xl");
-    expect(accessLogin).not.toContain("الدخول أو إنشاء حساب عميل باستخدام رقم الجوال");
-    expect(accessLogin).not.toContain("الدخول برقم الجوال الذي سجله المالك لحساب المعقب");
+    expect(authModal).not.toContain("findByPhoneAccessToken");
+    expect(completePhoneProfile).toContain('role === "customer" && isNewCustomer && !acceptedTerms');
+    expect(completePhoneProfile).toContain("emailPattern.test");
+    expect(completePhoneProfile).toContain('target="_blank"');
+    expect(phoneProfileRouter).toContain("verifyPhoneLoginTicket(input.verificationToken)");
+    expect(phoneProfileRouter).not.toContain("input.phone");
+  });
+
+  it("يقصر تنزيل مستندات المعقب على الإدارة ويحمي metadata من عناوين التخزين", () => {
+    expect(agentDocumentsRouter).toContain("consent: z.literal(true)");
+    expect(agentDocumentsRouter).toContain("list: adminProcedure");
+    expect(agentDocumentsRouter).toContain("download: adminProcedure");
+    expect(agentDocumentsRouter).toContain("no-store, private");
+    expect(agentDocumentsContract).toContain("never\n * contains phone, applicationId, storageKey, object URL");
   });
 
   it("يوفر تسجيل حساب العميل برقم الجوال كمعرّف أساسي", () => {
     expect(appRoutes).toContain('path={"/customer-signup"}');
     expect(unifiedAccessButton).toContain("openAuthModal");
-    expect(authModal).toContain('variant="modal"');
+    expect(authModal).toContain("<Dialog");
     expect(customerSignup).toContain("registerWithPhone.useMutation");
     expect(customerSignup).toContain("normalizeSaudiPhone");
     expect(customerSignup).toContain('DEMO_CUSTOMER_OTP = "123456"');

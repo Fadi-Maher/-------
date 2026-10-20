@@ -15,6 +15,8 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { trpc } from "@/lib/trpc";
+import { AgentApplicationDocumentReview } from "@/components/AgentApplicationDocumentReview";
+import { useSearch } from "wouter";
 import {
   AlertCircle,
   BadgeCheck,
@@ -30,6 +32,7 @@ import {
 } from "lucide-react";
 import React, {
   type ChangeEvent,
+  useEffect,
   useId,
   useMemo,
   useRef,
@@ -98,6 +101,10 @@ function errorMessage(error: unknown, fallback: string) {
 
 export function AgentApplicationsPanel() {
   const { isEnglish } = useLanguage();
+  const query = useSearch();
+  const [targetApplicationId, setTargetApplicationId] = useState<number | null>(
+    null
+  );
   const list = trpc.agentApplications.list.useQuery();
   const review = trpc.agentApplications.review.useMutation();
   const utils = trpc.useUtils();
@@ -113,6 +120,35 @@ export function AgentApplicationsPanel() {
     useState<ApplicationPermissions>(defaultPermissions);
   const [reviewError, setReviewError] = useState("");
   const [reviewOpen, setReviewOpen] = useState(false);
+
+  useEffect(() => {
+    const select = (value: unknown) => {
+      const id = Number(value);
+      if (!Number.isSafeInteger(id) || id <= 0) return;
+      setFilter("all");
+      setSearch("");
+      setTargetApplicationId(id);
+    };
+    const fromUrl = new URLSearchParams(query).get("applicationId");
+    if (fromUrl) select(fromUrl);
+    const receive = (event: Event) =>
+      select(
+        (event as CustomEvent<{ applicationId?: number }>).detail?.applicationId
+      );
+    window.addEventListener("admin-application:open", receive);
+    return () => window.removeEventListener("admin-application:open", receive);
+  }, [query]);
+  useEffect(() => {
+    if (!targetApplicationId || !list.data) return;
+    const frame = requestAnimationFrame(() => {
+      const card = document.getElementById(
+        `agent-application-${targetApplicationId}`
+      );
+      card?.scrollIntoView({ behavior: "auto", block: "center" });
+      card?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [targetApplicationId, list.data]);
 
   const copy = isEnglish
     ? {
@@ -450,7 +486,9 @@ export function AgentApplicationsPanel() {
           {visibleApplications.map(application => (
             <article
               key={application.id}
-              className="overflow-hidden rounded-2xl border border-[#dce8f6] bg-white"
+              id={`agent-application-${application.id}`}
+              tabIndex={-1}
+              className={`overflow-hidden rounded-2xl border bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0878f9] ${targetApplicationId === application.id ? "border-[#0878f9] ring-2 ring-[#cce5ff]" : "border-[#dce8f6]"}`}
             >
               <div className="flex items-start gap-3 bg-[#fbfdff] p-4">
                 <span
@@ -518,6 +556,9 @@ export function AgentApplicationsPanel() {
                     {application.experienceYears}
                   </p>
                 </div>
+                <AgentApplicationDocumentReview
+                  applicationId={application.id}
+                />
                 {application.notes ? (
                   <div className="rounded-xl bg-[#f8fbff] p-3">
                     <p className="text-xs font-black text-[#60778f]">

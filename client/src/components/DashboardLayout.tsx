@@ -1,5 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { AdminApplicationNotificationCenter } from "@/components/AdminApplicationNotificationCenter";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -121,6 +122,7 @@ function DashboardLayoutContent({ children }: DashboardLayoutContentProps) {
         >
           <SidebarHeader className="h-20 justify-center border-b border-[#e7eff8]">
             <div className="flex items-center gap-3 px-2 transition-all w-full">
+              <AdminApplicationNotificationCenter />
               <button
                 onClick={toggleSidebar}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#eef7ff] text-[#0878f9] transition-colors hover:bg-[#e1f0ff] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -207,6 +209,7 @@ function DashboardLayoutContent({ children }: DashboardLayoutContentProps) {
                 </div>
               </div>
             </div>
+            <AdminApplicationNotificationCenter />
           </div>
         )}
         <main className="flex-1 bg-[#f5f9ff] p-4 sm:p-6">{children}</main>

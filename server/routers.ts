@@ -80,6 +80,9 @@ import { agentFinanceRouter } from "./agentFinanceRouter";
 import { phoneAuthRouter } from "./phoneAuthRouter";
 import { agentApplicationsRouter } from "./agentApplicationsRouter";
 import { listTeamPrivateMessages } from "./teamMessages";
+import { agentApplicationDocumentsRouter } from "./agentApplicationDocumentsRouter";
+import { phoneProfileRouter } from "./phoneProfileRouter";
+import { adminApplicationNotificationsRouter } from "./adminApplicationNotificationsRouter";
 const requestStatuses = ["received", "in_review", "in_progress", "completed"] as const;
 const requestPriorities = ["low", "normal", "high", "urgent"] as const;
 const assistantMessageInput = z.object({
@@ -276,6 +279,9 @@ export const appRouter = router({
   agentFinance: agentFinanceRouter,
   phoneAuth: phoneAuthRouter,
   agentApplications: agentApplicationsRouter,
+  phoneProfile: phoneProfileRouter,
+  agentDocuments: agentApplicationDocumentsRouter,
+  adminApplicationNotifications: adminApplicationNotificationsRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {

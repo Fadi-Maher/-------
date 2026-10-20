@@ -37,6 +37,8 @@ vi.mock("@/contexts/LanguageContext", () => ({
     isEnglish: mocks.isEnglish,
   }),
 }));
+vi.mock("@/components/AgentDocumentUploader", () => ({ AgentDocumentUploader: () => null }));
+vi.mock("@/components/AgentApplicationDocumentReview", () => ({ AgentApplicationDocumentReview: () => null }));
 
 vi.mock("@/lib/trpc", () => ({
   trpc: {
@@ -230,6 +232,7 @@ describe("agent membership application UI", () => {
         specialty: "Government services",
         experienceYears: 0,
         consent: true,
+        documentIds: [],
       })
     );
     expect(mocks.submit.mock.calls[0]?.[0]).not.toHaveProperty("phone");
