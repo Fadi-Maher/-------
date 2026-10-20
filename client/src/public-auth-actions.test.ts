@@ -54,7 +54,11 @@ vi.mock("./contexts/LanguageContext", () => ({
   }),
 }));
 
+vi.mock("./components/CustomerAuthForm", () => ({ CustomerAuthForm: () => h("input", { "aria-label": "Mock customer phone", "data-testid": "customer-modal-form" }) }));
+vi.mock("./components/AgentAuthForm", () => ({ AgentAuthForm: () => h("input", { "aria-label": "Mock agent phone", "data-testid": "agent-modal-form" }) }));
+
 import { PublicHeader } from "./components/PublicHeader";
+import { AuthModal } from "./components/AuthModal";
 
 const publicUser = (role: AuthUser["role"]): AuthUser => ({
   role,
@@ -72,10 +76,11 @@ function authRows() {
 function expectPersistentPublicAuthActions() {
   for (const row of authRows()) {
     const signIn = row.getByRole("button", { name: "Sign in" });
-    const createAccount = row.getByRole("link", { name: "Create account" });
+    const createAccount = row.getByRole("button", { name: "Create account" });
 
     expect(signIn.textContent?.trim()).toContain("Sign in");
-    expect(createAccount.getAttribute("href")).toBe("/customer-signup");
+    expect(createAccount.textContent?.trim()).toContain("Create account");
+    expect(createAccount.getAttribute("href")).toBeNull();
   }
 
   // The account menu must not add a third login trigger: exactly one belongs
@@ -84,7 +89,7 @@ function expectPersistentPublicAuthActions() {
 }
 
 function renderHeader() {
-  return render(h(PublicHeader, { onChooseService: vi.fn() }));
+  return render(h(React.Fragment, null, h(PublicHeader, { onChooseService: vi.fn() }), h(AuthModal)));
 }
 
 beforeAll(() => {
@@ -110,6 +115,8 @@ beforeAll(() => {
       dispatchEvent: vi.fn(),
     }))
   );
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => window.setTimeout(() => callback(0), 0));
+  vi.stubGlobal("cancelAnimationFrame", (id: number) => window.clearTimeout(id));
   HTMLElement.prototype.scrollIntoView = vi.fn();
 });
 
@@ -154,7 +161,7 @@ describe("إجراءات الدخول العامة", () => {
     expectPersistentPublicAuthActions();
   });
 
-  it("uses visible compact text, opens the chooser, exposes only customer and agent routes, and restores trigger focus after Escape", async () => {
+  it("uses visible compact text, opens the chooser and customer form without navigation, and restores trigger focus after Escape", async () => {
     const user = userEvent.setup();
     renderHeader();
 
@@ -173,19 +180,18 @@ describe("إجراءات الدخول العامة", () => {
     });
 
     expect(
-      within(dialog)
-        .getByRole("link", { name: "Service requester" })
-        .getAttribute("href")
-    ).toBe("/customer-signup");
+      within(dialog).getByRole("button", { name: "Service requester" })
+    ).toBeDefined();
     expect(
-      within(dialog)
-        .getByRole("link", { name: "Transaction specialist" })
-        .getAttribute("href")
-    ).toBe("/agent-login");
+      within(dialog).getByRole("button", { name: "Transaction specialist" })
+    ).toBeDefined();
     expect(
       document.querySelector('a[href="/dashboard"], a[href="/owner-login"]')
     ).toBeNull();
 
+    await user.click(within(dialog).getByRole("button", { name: "Service requester" }));
+    expect(await screen.findByTestId("customer-modal-form")).toBeDefined();
+    expect(window.location.pathname).toBe("/");
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(document.activeElement).toBe(desktopSignIn);

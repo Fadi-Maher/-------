@@ -14,6 +14,7 @@ import {
   markWelcomeSeen,
   shouldShowWelcome,
 } from "@/lib/welcome";
+import { openAuthModal } from "@/lib/authFlow";
 import {
   ArrowLeft,
   ArrowRight,
@@ -164,8 +165,8 @@ function WelcomeExperience({
         </div>
       </header>
       <nav aria-label={isEnglish ? "Account access" : "الدخول والتسجيل"} className="mt-3 flex flex-wrap justify-end gap-2">
-        <a href="/login" onClick={() => markWelcomeSeen(browserWelcomeStorage())} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#b7dbff] bg-white px-4 text-sm font-extrabold text-[#075aa8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0878f9] focus-visible:ring-offset-2">{copy.signIn}</a>
-        <a href="/customer-signup" onClick={() => markWelcomeSeen(browserWelcomeStorage())} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#0668d9] px-4 text-sm font-extrabold text-white hover:bg-[#0457ba] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0878f9] focus-visible:ring-offset-2">{copy.createAccount}</a>
+        <button type="button" onClick={event => { onSkip(); openAuthModal({ intent: "signin", audience: "choose", trigger: event.currentTarget }); }} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#b7dbff] bg-white px-4 text-sm font-extrabold text-[#075aa8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0878f9] focus-visible:ring-offset-2">{copy.signIn}</button>
+        <button type="button" onClick={event => { onSkip(); openAuthModal({ intent: "signup", audience: "customer", trigger: event.currentTarget }); }} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#0668d9] px-4 text-sm font-extrabold text-white hover:bg-[#0457ba] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0878f9] focus-visible:ring-offset-2">{copy.createAccount}</button>
       </nav>
       <div className="grid flex-1 content-center gap-6 py-5 sm:gap-10 sm:py-8 lg:grid-cols-[.95fr_1.05fr] lg:items-center lg:gap-14">
         <aside

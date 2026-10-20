@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { orderRequestsByLatestQuote } from "@/lib/customerRequestOrdering";
 import { trpc } from "@/lib/trpc";
+import { CUSTOMER_SESSION_EVENT } from "@/lib/customerSession";
 import {
   ArrowLeft,
   ArrowRight,
@@ -53,8 +54,21 @@ export default function CustomerAccount() {
   const [unreadQuoteRequestIds, setUnreadQuoteRequestIds] = useState<number[]>([]);
 
   useEffect(() => {
-    setName(localStorage.getItem("maalamati_customer_name") || "");
-    setAccessToken(localStorage.getItem("maalamati_customer_access_token") || "");
+    const refreshSession = () => {
+      setName(localStorage.getItem("maalamati_customer_name") || "");
+      setAccessToken(localStorage.getItem("maalamati_customer_access_token") || "");
+    };
+    const onSessionChanged = () => {
+      refreshSession();
+      setActiveTab("overview");
+      setExpandedRequestId(null);
+      setSearchQuery("");
+      setStatusFilter("all");
+      setUnreadQuoteRequestIds([]);
+    };
+    refreshSession();
+    window.addEventListener(CUSTOMER_SESSION_EVENT, onSessionChanged);
+    return () => window.removeEventListener(CUSTOMER_SESSION_EVENT, onSessionChanged);
   }, []);
 
   useEffect(() => {

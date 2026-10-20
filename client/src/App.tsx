@@ -4,6 +4,7 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { MaalamatiAssistant } from "./components/MaalamatiAssistant";
+import { AuthModal } from "./components/AuthModal";
 import { BrandWelcome, WelcomePage } from "./components/BrandWelcome";
 import Account from "./pages/Account";
 import About from "./pages/About";
@@ -84,6 +85,7 @@ function App() {
             <Router />
             <MaalamatiAssistant />
             <BrandWelcome />
+            <AuthModal />
           </TooltipProvider>
         </ThemeProvider>
       </LanguageProvider>

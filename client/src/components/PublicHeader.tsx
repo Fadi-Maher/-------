@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CUSTOMER_SESSION_EVENT, readCustomerSession } from "@/lib/customerSession";
+import { openAuthModal } from "@/lib/authFlow";
 import { BriefcaseBusiness, Building2, Headphones, Home, LogOut, Menu, Route, UserPlus, UserRound } from "lucide-react";
 
 const productNav = [
@@ -85,10 +86,10 @@ function PublicAuthActions({ compact = false }: { compact?: boolean }) {
   return (
     <div data-testid={compact ? "public-auth-mobile" : "public-auth-desktop"} className={compact ? "grid w-full grid-cols-2 gap-2" : "flex shrink-0 items-center gap-2"}>
       <UnifiedAccessButton compact={compact} />
-      <a href="/customer-signup" className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0668d9] px-3 text-sm font-extrabold text-white shadow-sm transition-colors hover:bg-[#0457ba] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0878f9] focus-visible:ring-offset-2">
+      <button type="button" data-auth-trigger="signup" onClick={event => openAuthModal({ intent: "signup", audience: "customer", trigger: event.currentTarget })} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0668d9] px-3 text-sm font-extrabold text-white shadow-sm transition-colors hover:bg-[#0457ba] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0878f9] focus-visible:ring-offset-2">
         <UserPlus className="h-4 w-4" aria-hidden="true" />
         <span>{isEnglish ? "Create account" : "إنشاء حساب"}</span>
-      </a>
+      </button>
     </div>
   );
 }

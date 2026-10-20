@@ -10,7 +10,7 @@ const aboutPage = readFileSync(new URL("./pages/About.tsx", import.meta.url), "u
 const contactPage = readFileSync(new URL("./pages/Contact.tsx", import.meta.url), "utf8");
 const trackPage = readFileSync(new URL("./pages/TrackRequest.tsx", import.meta.url), "utf8");
 const publicHeader = readFileSync(new URL("./components/PublicHeader.tsx", import.meta.url), "utf8");
-const customerSignup = readFileSync(new URL("./pages/CustomerSignup.tsx", import.meta.url), "utf8");
+const customerSignup = ["./pages/CustomerSignup.tsx", "./components/CustomerAuthForm.tsx", "./lib/customerSession.ts"].map(path => readFileSync(new URL(path, import.meta.url), "utf8")).join("\n");
 const customerAccount = readFileSync(new URL("./pages/CustomerAccount.tsx", import.meta.url), "utf8");
 const appRoutes = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
 const ownerLogin = readFileSync(new URL("./pages/OwnerLogin.tsx", import.meta.url), "utf8");
@@ -28,8 +28,9 @@ const accountPage = readFileSync(new URL("./pages/Account.tsx", import.meta.url)
 const customerNotificationCenter = readFileSync(new URL("./components/CustomerNotificationCenter.tsx", import.meta.url), "utf8");
 const globalStyles = readFileSync(new URL("./index.css", import.meta.url), "utf8");
 const unifiedAccessButton = readFileSync(new URL("./components/UnifiedAccessButton.tsx", import.meta.url), "utf8");
+const authModal = readFileSync(new URL("./components/AuthModal.tsx", import.meta.url), "utf8");
 const accessLogin = readFileSync(new URL("./pages/AccessLogin.tsx", import.meta.url), "utf8");
-const agentLogin = readFileSync(new URL("./pages/AgentLogin.tsx", import.meta.url), "utf8");
+const agentLogin = ["./pages/AgentLogin.tsx", "./components/AgentAuthForm.tsx"].map(path => readFileSync(new URL(path, import.meta.url), "utf8")).join("\n");
 const customerQuotePanel = readFileSync(new URL("./components/CustomerQuotePanel.tsx", import.meta.url), "utf8");
 const deadlineIndicator = readFileSync(new URL("./components/DeadlineIndicator.tsx", import.meta.url), "utf8");
 const requestConversation = readFileSync(new URL("./components/RequestConversation.tsx", import.meta.url), "utf8");
@@ -190,15 +191,15 @@ describe("النصوص العامة لمعاملاتي", () => {
   });
 
   it("يعرض طالب خدمة ومعقب دون نصوص وصفية أسفل الخيارين", () => {
-    expect(unifiedAccessButton).toContain('customer: "طالب خدمة"');
-    expect(unifiedAccessButton).toContain('agent: "معقب"');
-    expect(unifiedAccessButton).not.toContain("customerHint");
-    expect(unifiedAccessButton).not.toContain("agentHint");
-    expect(unifiedAccessButton).not.toContain("DialogDescription");
-    expect(unifiedAccessButton).not.toContain("اختر نوع الحساب. حسابات الموظفين ينشئها ويديرها المالك فقط");
-    expect(unifiedAccessButton).not.toContain("Choose your account type. Employee accounts are created and managed by the owner only");
-    expect(unifiedAccessButton).toContain("text-xl font-black sm:text-2xl");
-    expect(unifiedAccessButton).toContain('className="h-7 w-7 shrink-0"');
+    expect(authModal).toContain('"Service requester" : "طالب خدمة"');
+    expect(authModal).toContain('"Transaction specialist" : "معقب"');
+    expect(authModal).not.toContain("customerHint");
+    expect(authModal).not.toContain("agentHint");
+    expect(authModal).not.toContain("DialogDescription");
+    expect(authModal).not.toContain("اختر نوع الحساب. حسابات الموظفين ينشئها ويديرها المالك فقط");
+    expect(authModal).not.toContain("Choose your account type. Employee accounts are created and managed by the owner only");
+    expect(authModal).toContain('data-account-choice="customer"');
+    expect(authModal).toContain('data-account-choice="agent"');
     expect(accessLogin).toContain("text-2xl font-black text-[#102a43] sm:text-3xl");
     expect(accessLogin).not.toContain("الدخول أو إنشاء حساب عميل باستخدام رقم الجوال");
     expect(accessLogin).not.toContain("الدخول برقم الجوال الذي سجله المالك لحساب المعقب");
@@ -206,13 +207,16 @@ describe("النصوص العامة لمعاملاتي", () => {
 
   it("يوفر تسجيل حساب العميل برقم الجوال كمعرّف أساسي", () => {
     expect(appRoutes).toContain('path={"/customer-signup"}');
-    expect(unifiedAccessButton).toContain('href="/customer-signup"');
+    expect(unifiedAccessButton).toContain("openAuthModal");
+    expect(authModal).toContain('variant="modal"');
     expect(customerSignup).toContain("registerWithPhone.useMutation");
     expect(customerSignup).toContain("normalizeSaudiPhone");
-    expect(customerSignup).toContain('const demoOtp = "123456"');
+    expect(customerSignup).toContain('DEMO_CUSTOMER_OTP = "123456"');
     expect(customerSignup).toContain("رقم الجوال هو المعرّف الأساسي");
     expect(customerSignup).toContain("phone");
-    expect(customerSignup).toContain('step, setStep] = useState<"phone" | "verify" | "details" | "registered">');
+    expect(customerSignup).toContain('step, setStep] = useState<"phone" | "verify" | "details">');
+    expect(customerSignup).toContain('finishSignIn({ role: "customer"');
+    expect(customerSignup).not.toContain('window.setTimeout(() => window.location.assign("/"), 1500)');
     expect(customerSignup).toContain("findByPhoneAccessToken.useMutation");
     expect(customerSignup).toContain("maalamati_customer_name");
     expect(customerSignup).toContain("Existing customers keep their saved details");
@@ -575,11 +579,11 @@ describe("النصوص العامة لمعاملاتي", () => {
   it("يوحد الدخول لطالب الخدمة والمعقب ويقصر إنشاء الموظفين على المالك", () => {
     expect(appRoutes).toContain('path={"/login"}');
     expect(appRoutes).toContain('path={"/agent-login"}');
-    expect(unifiedAccessButton).toContain("طالب خدمة");
-    expect(unifiedAccessButton).toContain("معقب");
-    expect(unifiedAccessButton).not.toContain("href=\"/team-login\"");
+    expect(authModal).toContain("طالب خدمة");
+    expect(authModal).toContain("معقب");
+    expect(authModal).not.toContain("href=\"/team-login\"");
     expect(agentLogin).toContain("agentPhoneDemo.useMutation");
-    expect(agentLogin).toContain("رمز واتساب التجريبي: 123456");
+    expect(agentLogin).toContain("رمز التحقق التجريبي: 123456");
     expect(employeesDashboard).toContain("رقم جوال المعقب");
     expect(employeesDashboard).toContain("الموظفون يضيفهم المالك فقط");
   });
