@@ -1,4 +1,5 @@
 import { CustomerNotificationCenter } from "@/components/CustomerNotificationCenter";
+import { CustomerProfilePanel } from "@/components/CustomerProfilePanel";
 import { CustomerQuotePanel } from "@/components/CustomerQuotePanel";
 import { PublicHeader } from "@/components/PublicHeader";
 import { RequestConversation } from "@/components/RequestConversation";
@@ -24,7 +25,7 @@ import {
   Search,
   UserRound,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 const statusLabels = {
@@ -34,7 +35,7 @@ const statusLabels = {
   completed: { ar: "مكتمل", en: "Completed" },
 } as const;
 
-type CustomerTab = "overview" | "requests" | "quotes" | "updates";
+type CustomerTab = "overview" | "requests" | "quotes" | "updates" | "profile";
 type RequestStatusFilter = "all" | keyof typeof statusLabels;
 
 export default function CustomerAccount() {
@@ -47,7 +48,12 @@ export default function CustomerAccount() {
   const [name, setName] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [activeTab, setActiveTab] = useState<CustomerTab>(linkedRequestId ? "requests" : "overview");
+  const [activeTab, setActiveTab] = useState<CustomerTab>(() => {
+    if (linkedRequestId) return "requests";
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "profile") return "profile";
+    return "overview";
+  });
+  const sessionTokenRef = useRef("");
   const [statusFilter, setStatusFilter] = useState<RequestStatusFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedRequestId, setExpandedRequestId] = useState<number | null>(linkedRequestId);
@@ -55,11 +61,16 @@ export default function CustomerAccount() {
 
   useEffect(() => {
     const refreshSession = () => {
+      const token = localStorage.getItem("maalamati_customer_access_token") || "";
       setName(localStorage.getItem("maalamati_customer_name") || "");
-      setAccessToken(localStorage.getItem("maalamati_customer_access_token") || "");
+      setAccessToken(token);
+      const sameAccount = Boolean(token) && token === sessionTokenRef.current;
+      sessionTokenRef.current = token;
+      return sameAccount;
     };
     const onSessionChanged = () => {
-      refreshSession();
+      // A profile edit re-saves the same session with a new name; keep the customer where they are.
+      if (refreshSession()) return;
       setActiveTab("overview");
       setExpandedRequestId(null);
       setSearchQuery("");
@@ -129,6 +140,8 @@ export default function CustomerAccount() {
         quotesIntro: "Compare all received quotes by price and turnaround time.",
         updates: "Latest updates",
         updatesIntro: "Review replies and progress updates on your requests.",
+        profile: "My profile",
+        profileIntro: "Update your name and email. Changes apply to your account straight away.",
         noRequests: "No requests are linked to this account yet.",
         noQuoteRequests: "No price quotes have been received yet.",
         loading: "Loading your requests…",
@@ -163,6 +176,8 @@ export default function CustomerAccount() {
         quotesIntro: "قارن جميع العروض المستلمة حسب السعر ومدة الإنجاز.",
         updates: "آخر التحديثات",
         updatesIntro: "راجع الردود وتحديثات التقدم على طلباتك.",
+        profile: "ملفي الشخصي",
+        profileIntro: "حدّث اسمك وبريدك الإلكتروني، وتُطبّق التغييرات على حسابك فورًا.",
         noRequests: "لا توجد طلبات مرتبطة بهذا الحساب بعد.",
         noQuoteRequests: "لم تصل عروض أسعار بعد.",
         loading: "جارٍ تحميل طلباتك…",
@@ -507,12 +522,14 @@ export default function CustomerAccount() {
     { id: "requests", label: copy.requests, icon: FileText, count: orderedRequests.length },
     { id: "quotes", label: copy.quotes, icon: HandCoins, count: activeQuoteCount },
     { id: "updates", label: copy.updates, icon: MessageSquare, count: updates.length },
+    { id: "profile", label: copy.profile, icon: UserRound, count: null },
   ] as const;
   const pageMeta = {
     overview: { title: copy.dashboard, intro: copy.dashboardIntro },
     requests: { title: copy.requests, intro: copy.requestsIntro },
     quotes: { title: copy.quotes, intro: copy.quotesIntro },
     updates: { title: copy.updates, intro: copy.updatesIntro },
+    profile: { title: copy.profile, intro: copy.profileIntro },
   }[activeTab];
   const statusTabs: Array<{ id: RequestStatusFilter; label: string; count: number }> = [
     { id: "all", label: copy.all, count: requestStatusCounts.all },
@@ -594,9 +611,11 @@ export default function CustomerAccount() {
                 >
                   <Icon className="h-4 w-4" />
                   {tab.label}
-                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${active ? "bg-white" : "bg-[#eef4fa]"}`}>
-                    {tab.count}
-                  </span>
+                  {tab.count !== null ? (
+                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${active ? "bg-white" : "bg-[#eef4fa]"}`}>
+                      {tab.count}
+                    </span>
+                  ) : null}
                 </button>
               );
             })}
@@ -629,9 +648,11 @@ export default function CustomerAccount() {
                     >
                       <Icon className="h-5 w-5 shrink-0" />
                       <span className="min-w-0 flex-1 truncate">{tab.label}</span>
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] ${active ? "bg-white" : "bg-[#eef4fa]"}`}>
-                        {tab.count}
-                      </span>
+                      {tab.count !== null ? (
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] ${active ? "bg-white" : "bg-[#eef4fa]"}`}>
+                          {tab.count}
+                        </span>
+                      ) : null}
                     </button>
                   );
                 })}
@@ -777,6 +798,10 @@ export default function CustomerAccount() {
               <div className="mt-7 rounded-2xl border border-[#e2ecf7] bg-[#fbfdff] p-4 sm:p-5">
                 {renderUpdates()}
               </div>
+            ) : null}
+
+            {activeTab === "profile" ? (
+              <CustomerProfilePanel accessToken={accessToken} isEnglish={isEnglish} onSessionExpired={logout} />
             ) : null}
           </section>
         </div>

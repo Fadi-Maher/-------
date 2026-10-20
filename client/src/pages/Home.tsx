@@ -50,15 +50,25 @@ const featuredServices = [
 ];
 
 const servicePlatforms = [
-  { nameAr: "أبشر", nameEn: "Absher", logo: "/manus-storage/absher_220430b7_f3bb0555.jpg", href: "https://www.absher.sa" },
-  { nameAr: "ناجز", nameEn: "Najiz", logo: "/manus-storage/najiz_d82c1ae6_90d34677.png", href: "https://najiz.sa" },
-  { nameAr: "بلدي", nameEn: "Balady", logo: "/manus-storage/balady_635d333c_6a1cd43d.jpg", href: "https://balady.gov.sa" },
-  { nameAr: "قوى", nameEn: "Qiwa", logo: "/manus-storage/qiwa_b2b31845_420bf070.jpg", href: "https://qiwa.sa" },
-  { nameAr: "هيئة الحكومة الرقمية", nameEn: "Digital Government Authority", logo: "/manus-storage/dga_f9e2226f_ce53f547.png", href: "https://dga.gov.sa" },
+  { nameAr: "أبشر", nameEn: "Absher", logo: "/manus-storage/platform-absher_9a7ab7e3.webp", width: 118, href: "https://www.absher.sa" },
+  { nameAr: "ناجز", nameEn: "Najiz", logo: "/manus-storage/platform-najiz_b888b455.webp", width: 210, href: "https://najiz.sa" },
+  { nameAr: "بلدي", nameEn: "Balady", logo: "/manus-storage/platform-balady_2296664c.webp", width: 323, href: "https://balady.gov.sa" },
+  { nameAr: "قوى", nameEn: "Qiwa", logo: "/manus-storage/platform-qiwa_674a4782.webp", width: 193, href: "https://qiwa.sa" },
+  { nameAr: "هيئة الحكومة الرقمية", nameEn: "Digital Government Authority", logo: "/manus-storage/platform-dga_2b51dd89.webp", width: 447, href: "https://dga.gov.sa" },
 ];
 
+// Responsive copies of the original 1440x1920 portrait (960w covers the ~342px slot at 2.8x).
+const HERO_IMAGE = {
+  src: "/manus-storage/maalamati-hero-abaya-720_9b098a7a.webp",
+  srcSet: [
+    "/manus-storage/maalamati-hero-abaya-480_c4268e1f.webp 480w",
+    "/manus-storage/maalamati-hero-abaya-720_9b098a7a.webp 720w",
+    "/manus-storage/maalamati-hero-abaya-960_8a3f82f7.webp 960w",
+  ].join(", "),
+  sizes: "(min-width: 1024px) 342px, (min-width: 640px) 322px, 270px",
+} as const;
 function ServicePlatforms({ isEnglish }: { isEnglish: boolean }) {
-  return <section className="border-b border-[#e5eef5] bg-white py-10 sm:py-12"><div className="container"><div className="text-center"><p className="text-xs font-extrabold text-[#0878f9]">{isEnglish ? "SERVICE PLATFORMS" : "منصات وجهات خدمية"}</p><h2 className="font-display mt-2 text-xl font-extrabold text-[#17334f] sm:text-2xl">{isEnglish ? "Platforms related to the transactions we serve" : "جهات ومنصات نخدم معاملات مرتبطة بها"}</h2><p className="mx-auto mt-2 max-w-2xl text-xs leading-6 text-[#70859b]">{isEnglish ? "Logos identify common service platforms and do not imply an official partnership or endorsement." : "توضح الشعارات نطاق الخدمات الشائع، ولا تعني وجود شراكة أو اعتماد رسمي من هذه الجهات."}</p></div><div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">{servicePlatforms.map((platform) => <a key={platform.nameAr} href={platform.href} target="_blank" rel="noreferrer" className="group flex min-h-28 flex-col items-center justify-center rounded-2xl border border-[#e3edf4] bg-[#fbfdff] p-4 transition-all hover:-translate-y-1 hover:border-[#a9d8ee] hover:bg-white hover:shadow-[0_12px_25px_rgba(28,104,182,.08)]"><img src={platform.logo} alt={isEnglish ? platform.nameEn : platform.nameAr} loading="lazy" className="h-12 w-full object-contain mix-blend-multiply sm:h-14" /><span className="mt-3 text-xs font-extrabold text-[#526d85] group-hover:text-[#0878f9]">{isEnglish ? platform.nameEn : platform.nameAr}</span></a>)}</div></div></section>;
+  return <section className="border-b border-[#e5eef5] bg-white py-10 sm:py-12"><div className="container"><div className="text-center"><p className="text-xs font-extrabold text-[#0878f9]">{isEnglish ? "SERVICE PLATFORMS" : "منصات وجهات خدمية"}</p><h2 className="font-display mt-2 text-xl font-extrabold text-[#17334f] sm:text-2xl">{isEnglish ? "Platforms related to the transactions we serve" : "جهات ومنصات نخدم معاملات مرتبطة بها"}</h2><p className="mx-auto mt-2 max-w-2xl text-xs leading-6 text-[#70859b]">{isEnglish ? "Logos identify common service platforms and do not imply an official partnership or endorsement." : "توضح الشعارات نطاق الخدمات الشائع، ولا تعني وجود شراكة أو اعتماد رسمي من هذه الجهات."}</p></div><div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">{servicePlatforms.map((platform) => <a key={platform.nameAr} href={platform.href} target="_blank" rel="noreferrer" className="group flex min-h-28 flex-col items-center justify-center rounded-2xl border border-[#e3edf4] bg-[#fbfdff] p-4 transition-all hover:-translate-y-1 hover:border-[#a9d8ee] hover:bg-white hover:shadow-[0_12px_25px_rgba(28,104,182,.08)]"><img src={platform.logo} width={platform.width} height={168} alt={isEnglish ? platform.nameEn : platform.nameAr} loading="lazy" decoding="async" className="h-12 w-full object-contain mix-blend-multiply sm:h-14" /><span className="mt-3 text-xs font-extrabold text-[#526d85] group-hover:text-[#0878f9]">{isEnglish ? platform.nameEn : platform.nameAr}</span></a>)}</div></div></section>;
 }
 
 function WhyMaalamati({ isEnglish }: { isEnglish: boolean }) {
@@ -324,7 +334,7 @@ function HomeEnglish() {
             <div className="relative mx-auto h-[360px] w-full max-w-[470px] sm:h-[430px] lg:h-[455px]">
               <div className="absolute inset-x-4 bottom-0 top-8 rounded-[2.25rem] bg-[linear-gradient(145deg,#d9effb,#f8fcff)]" />
               <div className="absolute left-7 top-11 h-28 w-28 rounded-[2rem] bg-white/45 rotate-[-18deg]" />
-              <img src="/manus-storage/maalamati-black-abaya-hero-a_7b0c4efb_0904de2d.png" alt="An elegant Saudi professional wearing a black abaya and holding a document folder" className="absolute bottom-0 left-1/2 z-10 h-[98%] w-auto max-w-[98%] -translate-x-1/2 object-contain object-bottom" />
+              <img src={HERO_IMAGE.src} srcSet={HERO_IMAGE.srcSet} sizes={HERO_IMAGE.sizes} width={1440} height={1920} fetchPriority="high" decoding="async" alt="An elegant Saudi professional wearing a black abaya and holding a document folder" className="absolute bottom-0 left-1/2 z-10 h-[98%] w-auto max-w-[98%] -translate-x-1/2 object-contain object-bottom" />
             </div>
           </div>
         </section>
@@ -440,7 +450,7 @@ function HomeArabic() {
             <div className="relative mx-auto h-[360px] w-full max-w-[470px] sm:h-[430px] lg:h-[455px]">
               <div className="absolute inset-x-4 bottom-0 top-8 rounded-[2.25rem] bg-[linear-gradient(145deg,#d9effb,#f8fcff)]" />
               <div className="absolute left-7 top-11 h-28 w-28 rounded-[2rem] bg-white/45 rotate-[-18deg]" />
-              <img src="/manus-storage/maalamati-black-abaya-hero-a_7b0c4efb_0904de2d.png" alt="سيدة سعودية أنيقة بعباية سوداء تحمل حافظة مستندات" className="absolute bottom-0 left-1/2 z-10 h-[98%] w-auto max-w-[98%] -translate-x-1/2 object-contain object-bottom" />
+              <img src={HERO_IMAGE.src} srcSet={HERO_IMAGE.srcSet} sizes={HERO_IMAGE.sizes} width={1440} height={1920} fetchPriority="high" decoding="async" alt="سيدة سعودية أنيقة بعباية سوداء تحمل حافظة مستندات" className="absolute bottom-0 left-1/2 z-10 h-[98%] w-auto max-w-[98%] -translate-x-1/2 object-contain object-bottom" />
             </div>
           </div>
         </section>

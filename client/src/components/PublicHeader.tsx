@@ -21,7 +21,7 @@ const compactAccountClass = "inline-flex h-11 w-11 shrink-0 items-center justify
 const accountClass = "inline-flex min-h-11 max-w-44 items-center gap-2 rounded-xl border border-[#cde3fa] bg-[#f5faff] px-3 py-2 text-sm font-bold text-[#31516e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0878f9] focus-visible:ring-offset-2";
 
 function CustomerAccountMenu({ name, compact, isEnglish }: { name: string; compact: boolean; isEnglish: boolean }) {
-  const copy = isEnglish ? { greeting: "Hello", account: "My requests", logout: "Sign out" } : { greeting: "مرحبًا", account: "طلباتي", logout: "تسجيل الخروج" };
+  const copy = isEnglish ? { greeting: "Hello", account: "My requests", profile: "My profile", logout: "Sign out" } : { greeting: "مرحبًا", account: "طلباتي", profile: "ملفي الشخصي", logout: "تسجيل الخروج" };
   return (
     <DropdownMenu dir={isEnglish ? "ltr" : "rtl"}>
       <DropdownMenuTrigger asChild>
@@ -33,6 +33,7 @@ function CustomerAccountMenu({ name, compact, isEnglish }: { name: string; compa
       <DropdownMenuContent align="start" sideOffset={12} className="w-60 rounded-2xl border-[#dce8f6] bg-white p-2 shadow-[0_18px_40px_rgba(27,79,129,.16)]">
         <div className="rounded-xl bg-[#f5faff] p-3"><p className="truncate text-sm font-extrabold text-[#17334f]">{name}</p><p className="mt-1 text-xs text-[#70859b]">{copy.account}</p></div>
         <DropdownMenuItem asChild className="mt-2 cursor-pointer rounded-xl px-3 py-3 text-sm font-bold text-[#31516e] focus:bg-[#eef7ff] focus:text-[#0878f9]"><a href="/customer-account"><Route className="h-4 w-4 text-[#0878f9]" />{copy.account}</a></DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer rounded-xl px-3 py-3 text-sm font-bold text-[#31516e] focus:bg-[#eef7ff] focus:text-[#0878f9]"><a href="/customer-account?tab=profile"><UserRound className="h-4 w-4 text-[#0878f9]" />{copy.profile}</a></DropdownMenuItem>
         <DropdownMenuSeparator className="my-2 bg-[#e7eff8]" />
         <DropdownMenuItem onSelect={() => { localStorage.removeItem("maalamati_customer_name"); localStorage.removeItem("maalamati_customer_phone"); localStorage.removeItem("maalamati_customer_access_token"); window.location.reload(); }} variant="destructive" className="cursor-pointer rounded-xl px-3 py-3 text-sm font-bold"><LogOut className="h-4 w-4" />{copy.logout}</DropdownMenuItem>
       </DropdownMenuContent>

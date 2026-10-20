@@ -182,6 +182,7 @@ function WelcomeExperience({
           />
           <BrandMark
             isEnglish={isEnglish}
+            sizes="(min-width: 640px) 144px, 96px"
             className="h-24 w-24 rounded-[1.4rem] shadow-[0_12px_40px_rgba(0,0,0,.18)] sm:h-36 sm:w-36 sm:rounded-[2rem]"
           />
           <p className="font-display mt-5 whitespace-pre-line text-3xl font-black leading-[1.35] tracking-[-.04em] sm:mt-8 sm:text-5xl">

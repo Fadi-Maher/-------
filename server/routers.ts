@@ -84,6 +84,7 @@ import { agentApplicationDocumentsRouter } from "./agentApplicationDocumentsRout
 import { phoneProfileRouter } from "./phoneProfileRouter";
 import { adminApplicationNotificationsRouter } from "./adminApplicationNotificationsRouter";
 import { notificationTemplatesRouter, siteAnnouncementsRouter } from "./siteContentRouter";
+import { getCustomerProfileByPhone, updateCustomerProfileByPhone } from "./customerProfileDb";
 const requestStatuses = ["received", "in_review", "in_progress", "completed"] as const;
 const requestPriorities = ["low", "normal", "high", "urgent"] as const;
 const assistantMessageInput = z.object({
@@ -837,6 +838,15 @@ export const appRouter = router({
     }).optional()).query(({ input }) => listAuditLogs(input ?? {})),
   }),
   customers: router({
+    // Self-service profile: the signed phone token is the only identity; the phone itself is never editable here.
+    myProfile: publicProcedure.input(z.object({ accessToken: z.string().min(20).max(300) })).query(({ input }) =>
+      getCustomerProfileByPhone(verifyPhoneAccessToken(input.accessToken))),
+    updateMyProfile: publicProcedure.input(z.object({
+      accessToken: z.string().min(20).max(300),
+      fullName: z.string().trim().min(2, "اكتب الاسم الكامل بحرفين على الأقل.").max(160),
+      email: z.string().trim().max(320).optional().nullable(),
+    })).mutation(({ input }) =>
+      updateCustomerProfileByPhone(verifyPhoneAccessToken(input.accessToken), { fullName: input.fullName, email: input.email })),
     findByPhoneAccessToken: publicProcedure.input(z.object({ accessToken: z.string().min(20).max(300) })).mutation(({ input }) => {
       const phone = verifyPhoneAccessToken(input.accessToken);
       return getCustomerByPhone(phone);

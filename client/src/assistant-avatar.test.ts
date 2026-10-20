@@ -5,6 +5,8 @@ import React, { createElement as h } from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import {
+  ASSISTANT_AVATAR_MEDIUM_URL,
+  ASSISTANT_AVATAR_SMALL_URL,
   ASSISTANT_AVATAR_URL,
   AssistantAvatar,
 } from "./components/AssistantAvatar";
@@ -29,13 +31,26 @@ describe("صورة المساعد", () => {
     const image = screen.getByTestId("assistant-avatar-image") as HTMLImageElement;
     expect(ASSISTANT_AVATAR_URL).toMatch(/^\/manus-storage\/.+\.webp$/);
     expect(ASSISTANT_AVATAR_URL).not.toBe(LEGACY_AVATAR_URL);
-    expect(image.getAttribute("src")).toBe(ASSISTANT_AVATAR_URL);
+    // The small round avatar loads a downscaled copy of the same portrait first.
+    expect(image.getAttribute("src")).toBe(ASSISTANT_AVATAR_MEDIUM_URL);
+    expect(image.getAttribute("srcset")).toContain(`${ASSISTANT_AVATAR_SMALL_URL} 128w`);
+    expect(image.getAttribute("sizes")).toBe("56px");
     expect(image.getAttribute("alt")).toBe("");
     expect(image.className).toContain("h-full w-full object-cover");
     expect(image.className).toContain("test-avatar");
     expect(screen.queryByTestId("assistant-avatar-fallback")).toBeNull();
   });
 
+  it("يرجع إلى الصورة الأصلية إذا فشلت النسخة المصغرة ثم إلى الأيقونة", () => {
+    const { container } = render(h(AssistantAvatar));
+    fireEvent.error(screen.getByTestId("assistant-avatar-image"));
+    const original = screen.getByTestId("assistant-avatar-image") as HTMLImageElement;
+    expect(original.getAttribute("src")).toBe(ASSISTANT_AVATAR_URL);
+    expect(original.getAttribute("srcset")).toBeNull();
+    fireEvent.error(original);
+    expect(screen.getByTestId("assistant-avatar-fallback")).toBeTruthy();
+    expect(container.querySelectorAll("img")).toHaveLength(0);
+  });
   it("يبقي الصورة العادية ظاهرة عند اكتمال التحميل", () => {
     render(h(AssistantAvatar));
 

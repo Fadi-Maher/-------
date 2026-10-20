@@ -102,7 +102,7 @@ describe("النصوص العامة لمعاملاتي", () => {
     expect(pwaInstall).toContain("await installPrompt.prompt()");
     expect(pwaInstall).toContain('variant?: "footer" | "showcase"');
     expect(appShowcase).toContain("maalamati-my-requests-demo_0ac8bb82_c4d30924.mp4");
-    expect(appShowcase).toContain("maalamati-requests-scene-1_7c388ba9_97e78440.png");
+    expect(appShowcase).toContain("maalamati-requests-scene-1_a053dcd8.webp");
     expect(appShowcase).toContain('alt={isEnglish ? "My requests account overview" : "معاينة لوحة حساب طلباتي"}');
     expect(appShowcase).toContain("prefers-reduced-motion: reduce");
     expect(appShowcase).toContain("autoPlay");

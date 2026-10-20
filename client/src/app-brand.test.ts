@@ -93,6 +93,6 @@ describe("Maalamati Care brand regression", () => {
     expect(assistantUi).not.toContain('/manus-storage/maalamati-assistant-avatar_1d2f6239.png');
     expect(notificationCenter).toContain('/manus-storage/maalamati-quote-alert_818d0073_ab955c73.wav');
     expect(appShowcase).toContain('/manus-storage/maalamati-my-requests-demo_0ac8bb82_c4d30924.mp4');
-    expect(appShowcase).toContain('/manus-storage/maalamati-requests-scene-1_7c388ba9_97e78440.png');
+    expect(appShowcase).toContain('/manus-storage/maalamati-requests-scene-1_a053dcd8.webp');
   });
 });

@@ -3,7 +3,7 @@ import { CheckCircle2, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const APP_DEMO_VIDEO_URL = "/manus-storage/maalamati-my-requests-demo_0ac8bb82_c4d30924.mp4";
-const APP_DEMO_POSTER_URL = "/manus-storage/maalamati-requests-scene-1_7c388ba9_97e78440.png";
+const APP_DEMO_POSTER_URL = "/manus-storage/maalamati-requests-scene-1_a053dcd8.webp";
 
 export function AppShowcaseSection({ isEnglish }: { isEnglish: boolean }) {
   const [reduceMotion, setReduceMotion] = useState(false);
@@ -91,6 +91,10 @@ export function AppShowcaseSection({ isEnglish }: { isEnglish: boolean }) {
               ) : (
                 <img
                   src={APP_DEMO_POSTER_URL}
+                  width={720}
+                  height={1280}
+                  loading="lazy"
+                  decoding="async"
                   alt={isEnglish ? "My requests account overview" : "معاينة لوحة حساب طلباتي"}
                   className="absolute inset-0 h-full w-full object-cover"
                 />
