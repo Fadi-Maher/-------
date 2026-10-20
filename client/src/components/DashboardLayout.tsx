@@ -34,6 +34,7 @@ const menuItems = [
   { icon: Users, label: "العملاء", path: "/customers" },
   { icon: LayoutDashboard, label: "الطلبات", path: "/dashboard" },
   { icon: Headset, label: "مساعد المبيعات", path: "/sales-assistant" },
+  { icon: Headset, label: "دعم الطلبات", path: "/support-inbox" },
   { icon: Settings, label: "إعدادات النموذج", path: "/settings" },
   { icon: Bot, label: "معرفة المساعد", path: "/settings/assistant" },
   { icon: BellRing, label: "الإشعارات والإعلانات", path: "/settings/notifications" },

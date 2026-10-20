@@ -86,6 +86,7 @@ import { adminApplicationNotificationsRouter } from "./adminApplicationNotificat
 import { notificationTemplatesRouter, siteAnnouncementsRouter } from "./siteContentRouter";
 import { leadBotRouter } from "./leadBot/router";
 import { invalidateLeadBotKnowledgeCache } from "./leadBot/service";
+import { orderSupportRouter } from "./orderSupportRouter";
 import { getCustomerProfileByPhone, updateCustomerProfileByPhone } from "./customerProfileDb";
 import { assertCanRequestPhoneChange, assertPhoneAccessCurrent, changeCustomerPhone } from "./customerPhoneChangeDb";
 import { requestPhoneCode, verifyPhoneCode } from "./phoneOtpDb";
@@ -308,6 +309,7 @@ export const appRouter = router({
   phoneAuth: phoneAuthRouter,
   agentApplications: agentApplicationsRouter,
   leadBot: leadBotRouter,
+  orderSupport: orderSupportRouter,
   phoneProfile: phoneProfileRouter,
   agentDocuments: agentApplicationDocumentsRouter,
   adminApplicationNotifications: adminApplicationNotificationsRouter,
