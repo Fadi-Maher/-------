@@ -85,6 +85,8 @@ import { phoneProfileRouter } from "./phoneProfileRouter";
 import { adminApplicationNotificationsRouter } from "./adminApplicationNotificationsRouter";
 import { notificationTemplatesRouter, siteAnnouncementsRouter } from "./siteContentRouter";
 import { getCustomerProfileByPhone, updateCustomerProfileByPhone } from "./customerProfileDb";
+import { assertCanRequestPhoneChange, assertPhoneAccessCurrent, changeCustomerPhone } from "./customerPhoneChangeDb";
+import { requestPhoneCode, verifyPhoneCode } from "./phoneOtpDb";
 const requestStatuses = ["received", "in_review", "in_progress", "completed"] as const;
 const requestPriorities = ["low", "normal", "high", "urgent"] as const;
 const assistantMessageInput = z.object({
@@ -159,7 +161,8 @@ const createPhoneAccessToken = (phone: string) => {
   const payload = phoneAccessPayload(phone);
   return `${Buffer.from(payload).toString("base64url")}.${signPhoneAccess(payload)}`;
 };
-const verifyPhoneAccessToken = (token: string) => {
+/** Signature and expiry only; use requireCustomerPhone in procedures so released numbers are rejected too. */
+const readPhoneAccessToken = (token: string) => {
   if (!ENV.cookieSecret) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "إعداد أمان التحقق غير متاح." });
   const [encodedPayload, signature] = token.split(".");
   if (!encodedPayload || !signature) throw new TRPCError({ code: "UNAUTHORIZED", message: "انتهت جلسة التحقق. أعد التحقق من رقم الجوال." });
@@ -170,9 +173,28 @@ const verifyPhoneAccessToken = (token: string) => {
   if (!validSignature || !/^05\d{8}$/.test(phone ?? "") || Number(expiresAt) <= Math.floor(Date.now() / 1000)) {
     throw new TRPCError({ code: "UNAUTHORIZED", message: "انتهت جلسة التحقق. أعد التحقق من رقم الجوال." });
   }
+  return { phone, issuedAtMs: (Number(expiresAt) - phoneAccessTtlSeconds) * 1000 };
+};
+/** The verified customer phone for a token, unless the customer has since moved to another number. */
+const requireCustomerPhone = async (token: string) => {
+  const { phone, issuedAtMs } = readPhoneAccessToken(token);
+  await assertPhoneAccessCurrent(phone, issuedAtMs);
   return phone;
 };
-
+/** For the number-change flow, where UNAUTHORIZED already means "wrong or expired code". */
+const requirePhoneChangeSession = async (token: string, language: "ar" | "en") => {
+  try {
+    return await requireCustomerPhone(token);
+  } catch (error) {
+    if (error instanceof TRPCError && error.code === "UNAUTHORIZED") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: language === "en" ? "Your session has ended. Sign in again, then try again." : "انتهت جلستك. سجّل الدخول من جديد ثم أعد المحاولة.",
+      });
+    }
+    throw error;
+  }
+};
 const subscriptionInput = z.object({
   endpoint: z.string().url().max(4000),
   p256dh: z.string().min(16).max(255),
@@ -502,7 +524,7 @@ export const appRouter = router({
       return { id: created.id, reference: created.reference, ownerNotified };
     }),
     createForCustomer: publicProcedure.input(customerRequestInput).mutation(async ({ input }) => {
-      const phone = verifyPhoneAccessToken(input.accessToken);
+      const phone = await requireCustomerPhone(input.accessToken);
       const customer = await getCustomerByPhone(phone);
       if (!customer) throw new TRPCError({ code: "UNAUTHORIZED", message: "تعذر العثور على حساب العميل. أعد تسجيل الدخول." });
       if (input.category === "طلب خدمة" && !input.subcategory) {
@@ -572,7 +594,7 @@ export const appRouter = router({
       }),
     trackByPhoneVerified: publicProcedure
       .input(z.object({ accessToken: z.string().min(20).max(300) }))
-      .query(({ input }) => getRequestTrackingByPhone(verifyPhoneAccessToken(input.accessToken))),
+      .query(async ({ input }) => getRequestTrackingByPhone(await requireCustomerPhone(input.accessToken))),
     updates: adminProcedure
       .input(z.object({ requestId: z.number().int().positive() }))
       .query(({ input }) => listRequestUpdates(input.requestId)),
@@ -721,17 +743,17 @@ export const appRouter = router({
       return listTeamPrivateMessages(ctx.user.id);
     }),
     customerList: publicProcedure.input(z.object({ accessToken: z.string().min(20).max(300), requestId: z.number().int().positive() })).query(async ({ input }) => {
-      const updates = await listCustomerRequestConversation(verifyPhoneAccessToken(input.accessToken), input.requestId);
+      const updates = await listCustomerRequestConversation(await requireCustomerPhone(input.accessToken), input.requestId);
       if (!updates) throw new TRPCError({ code: "FORBIDDEN", message: "تُفتح المحادثة بعد اعتماد مقدم الخدمة فقط." });
       return updates;
     }),
     customerSend: publicProcedure.input(z.object({ accessToken: z.string().min(20).max(300), requestId: z.number().int().positive(), message: z.string().trim().min(2).max(2000) })).mutation(async ({ input }) => {
-      const result = await createCustomerRequestComment({ phone: verifyPhoneAccessToken(input.accessToken), requestId: input.requestId, message: input.message });
+      const result = await createCustomerRequestComment({ phone: await requireCustomerPhone(input.accessToken), requestId: input.requestId, message: input.message });
       if (!result) throw new TRPCError({ code: "FORBIDDEN", message: "لا يمكن إرسال تعليق إلا داخل طلب معتمد يخص رقم جوالك." });
       return { success: true, updateId: result.updateId } as const;
     }),
     customerUpload: publicProcedure.input(conversationAttachmentInput.extend({ accessToken: z.string().min(20).max(300) })).mutation(async ({ input }) => {
-      const phone = verifyPhoneAccessToken(input.accessToken);
+      const phone = await requireCustomerPhone(input.accessToken);
       if (!(await listCustomerRequestConversation(phone, input.requestId))) throw new TRPCError({ code: "FORBIDDEN", message: "لا يمكن إرفاق ملف إلا داخل طلب معتمد يخص رقم جوالك." });
       const request = await getTransactionRequestById(input.requestId);
       if (request?.status === "completed") throw new TRPCError({ code: "CONFLICT", message: "المراسلة مغلقة للطلب المكتمل." });
@@ -770,7 +792,7 @@ export const appRouter = router({
   reviews: router({
     submit: publicProcedure.input(z.object({ accessToken: z.string().min(20).max(300), requestId: z.number().int().positive(), rating: z.number().int().min(1).max(5), reviewText: z.string().trim().max(1200).optional() })).mutation(async ({ input }) => {
       try {
-        const review = await createRequestReviewForCustomer({ phone: verifyPhoneAccessToken(input.accessToken), requestId: input.requestId, rating: input.rating, reviewText: input.reviewText });
+        const review = await createRequestReviewForCustomer({ phone: await requireCustomerPhone(input.accessToken), requestId: input.requestId, rating: input.rating, reviewText: input.reviewText });
         return { success: true, review } as const;
       } catch (error) {
         throw new TRPCError({ code: "CONFLICT", message: error instanceof Error ? error.message : "تعذر حفظ التقييم." });
@@ -778,17 +800,17 @@ export const appRouter = router({
     }),
   }),
   customerNotifications: router({
-    list: publicProcedure.input(z.object({ accessToken: z.string().min(20).max(300) })).query(({ input }) => listCustomerNotificationsForPhone(verifyPhoneAccessToken(input.accessToken))),
+    list: publicProcedure.input(z.object({ accessToken: z.string().min(20).max(300) })).query(async ({ input }) => listCustomerNotificationsForPhone(await requireCustomerPhone(input.accessToken))),
     markRead: publicProcedure.input(z.object({ accessToken: z.string().min(20).max(300), notificationId: z.number().int().positive() })).mutation(async ({ input }) => {
-      await markCustomerNotificationRead(input.notificationId, verifyPhoneAccessToken(input.accessToken));
+      await markCustomerNotificationRead(input.notificationId, await requireCustomerPhone(input.accessToken));
       return { success: true } as const;
     }),
     markAllRead: publicProcedure.input(z.object({ accessToken: z.string().min(20).max(300) })).mutation(async ({ input }) => {
-      await markAllCustomerNotificationsRead(verifyPhoneAccessToken(input.accessToken));
+      await markAllCustomerNotificationsRead(await requireCustomerPhone(input.accessToken));
       return { success: true } as const;
     }),
     markQuoteRequestRead: publicProcedure.input(z.object({ accessToken: z.string().min(20).max(300), requestId: z.number().int().positive() })).mutation(async ({ input }) => {
-      await markCustomerQuoteNotificationsReadForRequest(input.requestId, verifyPhoneAccessToken(input.accessToken));
+      await markCustomerQuoteNotificationsReadForRequest(input.requestId, await requireCustomerPhone(input.accessToken));
       return { success: true } as const;
     }),
   }),
@@ -820,10 +842,10 @@ export const appRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: error instanceof Error ? error.message : "تعذر تعديل المهلة." });
       }
     }),
-    customerList: publicProcedure.input(z.object({ accessToken: z.string().min(20).max(300) })).query(({ input }) => listQuotesForCustomerPhone(verifyPhoneAccessToken(input.accessToken))),
+    customerList: publicProcedure.input(z.object({ accessToken: z.string().min(20).max(300) })).query(async ({ input }) => listQuotesForCustomerPhone(await requireCustomerPhone(input.accessToken))),
     accept: publicProcedure.input(z.object({ accessToken: z.string().min(20).max(300), quoteId: z.number().int().positive() })).mutation(async ({ input }) => {
       try {
-        return await acceptQuoteForCustomer({ phone: verifyPhoneAccessToken(input.accessToken), quoteId: input.quoteId });
+        return await acceptQuoteForCustomer({ phone: await requireCustomerPhone(input.accessToken), quoteId: input.quoteId });
       } catch (error) {
         throw new TRPCError({ code: "CONFLICT", message: error instanceof Error ? error.message : "تعذر اعتماد العرض." });
       }
@@ -838,21 +860,48 @@ export const appRouter = router({
     }).optional()).query(({ input }) => listAuditLogs(input ?? {})),
   }),
   customers: router({
-    // Self-service profile: the signed phone token is the only identity; the phone itself is never editable here.
-    myProfile: publicProcedure.input(z.object({ accessToken: z.string().min(20).max(300) })).query(({ input }) =>
-      getCustomerProfileByPhone(verifyPhoneAccessToken(input.accessToken))),
+    // Self-service profile: the signed phone token is the only identity. The phone changes only through
+    // requestPhoneChange/confirmPhoneChange, after the new number is verified with its own code.
+    myProfile: publicProcedure.input(z.object({ accessToken: z.string().min(20).max(300) })).query(async ({ input }) =>
+      getCustomerProfileByPhone(await requireCustomerPhone(input.accessToken))),
     updateMyProfile: publicProcedure.input(z.object({
       accessToken: z.string().min(20).max(300),
       fullName: z.string().trim().min(2, "اكتب الاسم الكامل بحرفين على الأقل.").max(160),
       email: z.string().trim().max(320).optional().nullable(),
-    })).mutation(({ input }) =>
-      updateCustomerProfileByPhone(verifyPhoneAccessToken(input.accessToken), { fullName: input.fullName, email: input.email })),
-    findByPhoneAccessToken: publicProcedure.input(z.object({ accessToken: z.string().min(20).max(300) })).mutation(({ input }) => {
-      const phone = verifyPhoneAccessToken(input.accessToken);
+    })).mutation(async ({ input }) =>
+      updateCustomerProfileByPhone(await requireCustomerPhone(input.accessToken), { fullName: input.fullName, email: input.email })),
+    // Changing the sign-in number: a code is prepared for the new number, then the change is
+    // applied only after that number is verified. The old number's sessions stop working.
+    requestPhoneChange: publicProcedure.input(z.object({
+      accessToken: z.string().min(20).max(300),
+      newPhone: z.string().trim().regex(/^05\d{8}$/),
+      language: z.enum(["ar", "en"]).default("ar"),
+    })).mutation(async ({ input }) => {
+      const phone = await requirePhoneChangeSession(input.accessToken, input.language);
+      await assertCanRequestPhoneChange(phone, input.newPhone, input.language);
+      return requestPhoneCode(input.newPhone, input.language);
+    }),
+    confirmPhoneChange: publicProcedure.input(z.object({
+      accessToken: z.string().min(20).max(300),
+      challengeId: z.string().uuid(),
+      code: z.string().regex(/^\d{6}$/),
+      clientKey: z.string().uuid(),
+      language: z.enum(["ar", "en"]).default("ar"),
+    })).mutation(async ({ input }) => {
+      const phone = await requirePhoneChangeSession(input.accessToken, input.language);
+      // Fail before spending the code when the signed-in account itself is gone.
+      await getCustomerProfileByPhone(phone);
+      // The verified challenge decides the new number; the browser never supplies it here.
+      const verified = await verifyPhoneCode({ challengeId: input.challengeId, code: input.code, clientKey: input.clientKey, language: input.language });
+      const result = await changeCustomerPhone(phone, verified.phone, input.language);
+      return { ...result, accessToken: createPhoneAccessToken(result.profile.phone), expiresInSeconds: phoneAccessTtlSeconds };
+    }),
+    findByPhoneAccessToken: publicProcedure.input(z.object({ accessToken: z.string().min(20).max(300) })).mutation(async ({ input }) => {
+      const phone = await requireCustomerPhone(input.accessToken);
       return getCustomerByPhone(phone);
     }),
-    registerWithPhone: publicProcedure.input(z.object({ fullName: z.string().trim().min(2).max(160), phone: z.string().trim().regex(/^05\d{8}$/), email: z.string().trim().email().max(320).optional(), accessToken: z.string().min(20).max(300), termsAccepted: z.literal(true), termsVersion: z.literal(CURRENT_TERMS_VERSION) })).mutation(({ input }) => {
-      const verifiedPhone = verifyPhoneAccessToken(input.accessToken);
+    registerWithPhone: publicProcedure.input(z.object({ fullName: z.string().trim().min(2).max(160), phone: z.string().trim().regex(/^05\d{8}$/), email: z.string().trim().email().max(320).optional(), accessToken: z.string().min(20).max(300), termsAccepted: z.literal(true), termsVersion: z.literal(CURRENT_TERMS_VERSION) })).mutation(async ({ input }) => {
+      const verifiedPhone = await requireCustomerPhone(input.accessToken);
       if (verifiedPhone !== input.phone) throw new TRPCError({ code: "FORBIDDEN", message: "لا يتطابق رقم الجوال مع تصريح التحقق." });
       return registerCustomerWithPhone({ fullName: input.fullName, phone: input.phone, email: input.email, termsAcceptedAt: new Date(), termsVersion: input.termsVersion });
     }),

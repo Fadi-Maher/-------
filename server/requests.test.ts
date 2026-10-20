@@ -116,6 +116,11 @@ vi.mock("./db", () => ({
 
 vi.mock("./_core/notification", () => ({ notifyOwner: mocks.notifyOwner }));
 vi.mock("./storage", () => ({ storagePut: mocks.storagePut }));
+// The released-number session check reads the database; these unit tests have no released numbers.
+vi.mock("./customerPhoneChangeDb", async importOriginal => ({
+  ...(await importOriginal<typeof import("./customerPhoneChangeDb")>()),
+  assertPhoneAccessCurrent: vi.fn(async () => undefined),
+}));
 
 import { appRouter, requestInput } from "./routers";
 

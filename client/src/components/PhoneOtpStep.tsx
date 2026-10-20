@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/input-otp";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { normalizeLoginDigits } from "@/lib/phoneAuthValidation";
-import { AlertCircle, Clock3, RefreshCw, ShieldCheck } from "lucide-react";
+import { AlertCircle, Clock3, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
 import { useId } from "react";
 
 export type PhoneOtpChallenge = {
@@ -29,6 +29,9 @@ type Props = {
   onVerify: () => void;
   onResend: () => void;
   onChangePhone: () => void;
+  /** Optional wording for flows other than sign-in, such as changing the account number. */
+  title?: string;
+  submitLabel?: string;
 };
 export function PhoneOtpStep({
   phone,
@@ -42,6 +45,8 @@ export function PhoneOtpStep({
   onVerify,
   onResend,
   onChangePhone,
+  title,
+  submitLabel,
 }: Props) {
   const { isEnglish } = useLanguage();
   const fieldId = useId();
@@ -67,7 +72,7 @@ export function PhoneOtpStep({
         </span>
         <div>
           <h2 className="font-display text-xl font-black text-[#102a43]">
-            {isEnglish ? "Verify your mobile" : "تحقّق من رقم جوالك"}
+            {title ?? (isEnglish ? "Verify your mobile" : "تحقّق من رقم جوالك")}
           </h2>
           <p className="mt-1 text-sm leading-6 text-[#536e88]">
             {isEnglish
@@ -174,15 +179,15 @@ export function PhoneOtpStep({
       <Button
         type="submit"
         disabled={busy || code.length !== 6 || expires === 0}
-        className="h-12 w-full rounded-xl bg-[#0668d9] font-extrabold text-white hover:bg-[#0457ba]"
+        aria-busy={busy}
+        className="h-12 w-full rounded-xl bg-[#0668d9] font-extrabold text-white transition-transform hover:bg-[#0457ba] active:scale-[.97]"
       >
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
         {busy
           ? isEnglish
             ? "Checking…"
             : "جارٍ التحقق…"
-          : isEnglish
-            ? "Verify and continue"
-            : "تحقق وتابع"}
+          : submitLabel ?? (isEnglish ? "Verify and continue" : "تحقق وتابع")}
       </Button>
       <div className="grid gap-1 sm:grid-cols-2">
         <Button

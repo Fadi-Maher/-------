@@ -69,7 +69,7 @@ export default function CustomerAccount() {
       return sameAccount;
     };
     const onSessionChanged = () => {
-      // A profile edit re-saves the same session with a new name; keep the customer where they are.
+      // A profile edit re-saves the same session, and a number change pre-registers its new token; keep the customer where they are.
       if (refreshSession()) return;
       setActiveTab("overview");
       setExpandedRequestId(null);
@@ -801,7 +801,15 @@ export default function CustomerAccount() {
             ) : null}
 
             {activeTab === "profile" ? (
-              <CustomerProfilePanel accessToken={accessToken} isEnglish={isEnglish} onSessionExpired={logout} />
+              <CustomerProfilePanel
+                accessToken={accessToken}
+                isEnglish={isEnglish}
+                onSessionExpired={logout}
+                // A verified number change issues a new token for the same account; stay on this tab.
+                onAccessTokenRotated={token => {
+                  sessionTokenRef.current = token;
+                }}
+              />
             ) : null}
           </section>
         </div>

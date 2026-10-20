@@ -139,6 +139,17 @@ export const customers = mysqlTable("customers", {
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = typeof customers.$inferInsert;
 
+/**
+ * A customer's previous mobile, recorded when they move to a verified new number.
+ * Customer access tokens for this phone issued at or before releasedAt are rejected,
+ * so another device signed in with the old number cannot see data that later lands on it.
+ */
+export const customerPhoneReleases = mysqlTable("customer_phone_releases", {
+  phone: varchar("phone", { length: 40 }).primaryKey(),
+  customerId: int("customerId").references(() => customers.id, { onDelete: "set null" }),
+  releasedAt: bigint("releasedAt", { mode: "number" }).notNull(),
+});
+
 export const requestStatuses = ["received", "in_review", "in_progress", "completed"] as const;
 export const requestPriorities = ["low", "normal", "high", "urgent"] as const;
 

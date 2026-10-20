@@ -132,3 +132,41 @@ button:not(:disabled), [role="button"]:not([aria-disabled="true"]), [type="butto
   .otp-success-pop, .otp-shake { animation: none; }
   .quote-bell-alert { outline: 3px solid #ffb020; outline-offset: 3px; }
 }
+
+/* Customer profile: save progress, success pop-in and a brief highlight of what changed. */
+.profile-save-progress {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 3px;
+  overflow: hidden;
+  background: rgba(8, 120, 249, .12);
+  pointer-events: none;
+}
+.profile-save-progress::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  inset-inline-start: 0;
+  width: 100%;
+  background: #0878f9;
+  opacity: .55;
+}
+.profile-saved-glow { outline: 2px solid #34c47c; outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  .profile-save-progress::after {
+    width: 38%;
+    opacity: 1;
+    border-radius: 9999px;
+    animation: profile-save-progress 1.15s cubic-bezier(.77, 0, .175, 1) infinite;
+  }
+  [dir="rtl"] .profile-save-progress::after { animation-name: profile-save-progress-rtl; }
+  @keyframes profile-save-progress { from { transform: translateX(-100%); } to { transform: translateX(265%); } }
+  @keyframes profile-save-progress-rtl { from { transform: translateX(100%); } to { transform: translateX(-265%); } }
+  .profile-success-pop { animation: otp-success-pop .32s cubic-bezier(.23, 1, .32, 1) both; }
+  .profile-check-pop { animation: profile-check-pop .45s .08s cubic-bezier(.23, 1, .32, 1) both; }
+  @keyframes profile-check-pop { from { opacity: 0; transform: scale(.8); } to { opacity: 1; transform: scale(1); } }
+  .profile-saved-glow { animation: profile-saved-glow 2.4s cubic-bezier(.23, 1, .32, 1) forwards; }
+  @keyframes profile-saved-glow { from { outline-color: #34c47c; } to { outline-color: transparent; } }
+}
