@@ -19,6 +19,7 @@ const footerGroups = {
         { label: "طلباتي", href: "/customer-account" },
         { label: "تسجيل الدخول", href: "/login" },
         { label: "دخول المعقبين", href: "/agent-login" },
+        { label: "انضم كمعقّب", href: "/join-as-agent" },
       ],
     },
     {
@@ -49,6 +50,7 @@ const footerGroups = {
         { label: "My requests", href: "/customer-account" },
         { label: "Sign in", href: "/login" },
         { label: "Agent sign-in", href: "/agent-login" },
+        { label: "Join as an agent", href: "/join-as-agent" },
       ],
     },
     {

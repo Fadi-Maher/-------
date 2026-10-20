@@ -44,6 +44,31 @@ describe("notification template catalog", () => {
     expect(long.message.length).toBeLessThanOrEqual(500);
   });
 
+  it("renders the join-request decision templates for the applicant", () => {
+    const approved = renderNotificationTemplate("team.agent_application_approved", { name: "سارة", reference: "JOIN-12", note: "" });
+    expect(approved.type).toBe("agent_application_approved");
+    expect(approved.title).toBe("تمت الموافقة على طلب انضمامك");
+    expect(approved.message).toContain("مرحبًا سارة");
+    expect(approved.message).toContain("JOIN-12");
+    expect(approved.messageEn).toContain("Application JOIN-12 was approved");
+    const rejected = renderNotificationTemplate("team.agent_application_rejected", { name: "Sara", reference: "JOIN-13", note: "Missing license" });
+    expect(rejected.type).toBe("agent_application_rejected");
+    expect(rejected.titleEn).toBe("Your application was not approved");
+    expect(rejected.messageEn).toContain("JOIN-13");
+    // The owner may surface the reason directly in an edited template.
+    const withReason = renderNotificationTemplate(
+      "team.agent_application_rejected",
+      { name: "Sara", reference: "JOIN-13", note: "Missing license" },
+      { messageEn: "Sorry {name}, {reference} was declined: {note}" },
+    );
+    expect(withReason.messageEn).toBe("Sorry Sara, JOIN-13 was declined: Missing license");
+    const decisionTemplates = NOTIFICATION_TEMPLATES.filter((template) => template.key.startsWith("team.agent_application_"));
+    expect(decisionTemplates.map((template) => template.audience)).toEqual(["team", "team"]);
+    for (const template of decisionTemplates) {
+      expect(template.variables.map((variable) => variable.name)).toEqual(["name", "reference", "note"]);
+    }
+  });
+
   it("has defaults that pass their own validation for every template", () => {
     NOTIFICATION_TEMPLATES.forEach((template) => {
       expect(validateNotificationTemplate(template.key, template.defaults)).toEqual([]);

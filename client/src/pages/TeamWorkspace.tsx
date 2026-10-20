@@ -1,6 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { AgentFinancePanel } from "@/components/AgentFinancePanel";
 import { AgentOverview } from "@/components/AgentOverview";
+import { AgentDecisionNotice } from "@/components/AgentDecisionNotice";
 import { BrandMark } from "@/components/BrandMark";
 import { CompletedAgentRequests } from "@/components/CompletedAgentRequests";
 import { DeadlineIndicator } from "@/components/DeadlineIndicator";
@@ -133,6 +134,12 @@ export default function TeamWorkspace() {
     return notificationFilter === "all" ? items : items.filter(item => item.type === notificationFilter);
   }, [notificationFilter, notifications.data?.items, openedNotificationIds]);
 
+  // Join-request approval notice: shown on sign-in until the agent hides it (marks it read).
+  const approvalNotice = useMemo(
+    () => (notifications.data?.items ?? []).find(item => item.type === "agent_application_approved" && !item.isRead && !openedNotificationIds.includes(item.id)) ?? null,
+    [notifications.data?.items, openedNotificationIds],
+  );
+
   const openRequestPage = (requestId: number) => {
     setMarketOpen(false);
     setAssignedOpen(false);
@@ -193,6 +200,15 @@ export default function TeamWorkspace() {
     </div></div></header>
 
     <div className="mx-auto max-w-6xl px-4 py-8"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="section-kicker">{language.workspace}</p><h1 className="font-display mt-3 text-3xl font-black text-[#102a43]">{language.hello} {account.data?.fullName || user.name || (isEnglish ? "there" : "بك")}</h1><p className="mt-3 max-w-2xl text-sm leading-7 text-[#60778f]">{language.description}</p></div><Button variant="outline" className="rounded-xl border-[#b7dbff] bg-white text-[#0878f9]" onClick={refreshWorkspace}><RefreshCw className="me-2 h-4 w-4" />{language.refresh}</Button></div>
+      {isAgent && approvalNotice ? <AgentDecisionNotice
+        className="mt-6"
+        isEnglish={isEnglish}
+        notice={{ status: "approved", title: approvalNotice.title, message: approvalNotice.message, titleEn: approvalNotice.titleEn, messageEn: approvalNotice.messageEn }}
+        decidedAt={approvalNotice.createdAt}
+        dismissing={markRead.isPending}
+        onDismiss={() => void openTeamNotification(approvalNotice)}
+        primaryAction={{ label: isEnglish ? "Browse new customer requests" : "استعرض طلبات العملاء الجديدة", onClick: () => setMarketOpen(true) }}
+      /> : null}
       {isAgent ? <AgentOverview
         isEnglish={isEnglish}
         completedCount={canViewAssigned === true && !agentRequests.isLoading && !agentRequests.isError ? sortedCompletedRequests.length : null}

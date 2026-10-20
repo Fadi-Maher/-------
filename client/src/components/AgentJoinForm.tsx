@@ -7,6 +7,12 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { trpc } from "@/lib/trpc";
 import { AgentDocumentUploader } from "@/components/AgentDocumentUploader";
 import {
+  AgentDecisionNotice,
+  decisionText,
+  type AgentDecisionNoticeContent,
+} from "@/components/AgentDecisionNotice";
+import { toast } from "sonner";
+import {
   AlertCircle,
   BadgeCheck,
   CheckCircle2,
@@ -209,6 +215,26 @@ export function AgentJoinForm({
     | AgentApplication
     | null
     | undefined;
+  const decisionNotice = (status.data?.decisionNotice ??
+    null) as AgentDecisionNoticeContent | null;
+
+  // Announce a reviewed application once per browser session when the applicant signs in.
+  useEffect(() => {
+    if (!decisionNotice || !application || application.status === "pending")
+      return;
+    const key = `maalamati-agent-decision-${application.id}-${application.status}`;
+    try {
+      if (window.sessionStorage.getItem(key)) return;
+      window.sessionStorage.setItem(key, "1");
+    } catch {
+      // Storage may be unavailable (private mode); still show the toast once per mount.
+    }
+    const text = decisionText(decisionNotice, isEnglish);
+    if (application.status === "rejected") toast.error(text.title);
+    else toast.success(text.title);
+    // isEnglish is intentionally excluded: switching language must not re-announce.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [application?.id, application?.status, decisionNotice]);
 
   const update = <Key extends keyof JoinFormValues>(
     key: Key,
@@ -419,6 +445,36 @@ export function AgentJoinForm({
 
   if (application) {
     if (application.status === "rejected") {
+      if (decisionNotice) {
+        return (
+          <AgentDecisionNotice
+            className="min-w-0 w-full max-w-xl"
+            notice={decisionNotice}
+            isEnglish={isEnglish}
+            reference={application.reference}
+            reviewNote={application.reviewNote}
+            decidedAt={application.reviewedAt}
+          >
+            <p className="mt-3 text-xs leading-6 text-[#7d2632]">
+              {copy.rejectedText}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <a
+                href="/contact"
+                className="inline-flex min-h-10 items-center rounded-xl bg-[#0668d9] px-4 text-sm font-extrabold text-white transition-colors hover:bg-[#055bbd] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0668d9] focus-visible:ring-offset-2"
+              >
+                {isEnglish ? "Contact support" : "تواصل مع الدعم"}
+              </a>
+              <a
+                href="/join-as-agent"
+                className="inline-flex min-h-10 items-center rounded-xl border border-[#cfe0f0] bg-white px-4 text-sm font-bold text-[#31516e] transition-colors hover:bg-[#f3f9ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0668d9]"
+              >
+                {isEnglish ? "Joining requirements" : "متطلبات الانضمام"}
+              </a>
+            </div>
+          </AgentDecisionNotice>
+        );
+      }
       return (
         <StatusCard
           icon={<XCircle className="h-5 w-5" />}

@@ -8,7 +8,7 @@ import { isExternalAnnouncementLink, normalizeAnnouncementLink, type Announcemen
 export const ANNOUNCEMENT_DISMISS_KEY = "maalamati-announcement-dismissed";
 
 /** Public marketing pages only. Accounts, dashboards and login pages never show the bar. */
-const announcementPaths = new Set(["/", "/about", "/contact", "/track", "/customer-signup", "/terms-and-conditions", "/refund-and-cancellation"]);
+const announcementPaths = new Set(["/", "/about", "/contact", "/track", "/customer-signup", "/join-as-agent", "/terms-and-conditions", "/refund-and-cancellation"]);
 
 export function isAnnouncementPath(pathname: string) {
   const normalized = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;

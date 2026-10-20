@@ -5,12 +5,17 @@ import {
   agentApplications,
   auditLogs,
   staffAccounts,
+  teamNotifications,
   users,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { getDb } from "./db";
 import { createApplicationNotifications } from "./adminApplicationNotifications";
 import { attachDocuments } from "./agentApplicationDocuments";
+import {
+  buildNotificationContent,
+  type NotificationExecutor,
+} from "./notificationTemplateStore";
 export type AgentApplicationPermissions = {
   canViewAssigned: boolean;
   canUpdateStatus: boolean;
@@ -162,6 +167,36 @@ export function toPublicAgentApplication(
   };
 }
 
+type DecisionSource = {
+  id: number;
+  fullName: string;
+  status: "pending" | "approved" | "rejected";
+  reviewNote: string | null;
+};
+
+/**
+ * Applicant-facing decision text rendered from the owner's editable templates.
+ * Pending applications have no decision notice.
+ */
+export async function buildApplicationDecisionNotice(
+  executor: NotificationExecutor,
+  application: DecisionSource
+) {
+  if (application.status === "pending") return null;
+  const content = await buildNotificationContent(
+    executor,
+    application.status === "approved"
+      ? "team.agent_application_approved"
+      : "team.agent_application_rejected",
+    {
+      name: application.fullName,
+      reference: `JOIN-${application.id}`,
+      note: application.reviewNote ?? "",
+    }
+  );
+  return { status: application.status, ...content };
+}
+
 async function findApplicationByPhone(phone: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
@@ -209,9 +244,15 @@ export async function getAgentApplicationStatus(phone: string) {
     findApplicationByPhone(phone),
     hasActiveAgentByPhone(phone),
   ]);
+  const db = await getDb();
+  const decisionNotice =
+    application && db
+      ? await buildApplicationDecisionNotice(db, application)
+      : null;
   return {
     hasActiveAgent,
     application: application ? toPublicAgentApplication(application) : null,
+    decisionNotice,
   };
 }
 
@@ -521,6 +562,32 @@ export async function reviewAgentApplication(
           staffAccountId,
         }),
       });
+      // Persistent workspace notice for the new agent, shown on their first sign-in.
+      // A notice failure must never undo the approval itself.
+      try {
+        const notice = await buildApplicationDecisionNotice(tx, {
+          id: application.id,
+          fullName: application.fullName,
+          status: "approved",
+          reviewNote: input.reviewNote,
+        });
+        if (notice) {
+          await tx.insert(teamNotifications).values({
+            recipientUserId: userId,
+            requestId: null,
+            type: notice.type,
+            title: notice.title,
+            message: notice.message,
+            titleEn: notice.titleEn,
+            messageEn: notice.messageEn,
+          });
+        }
+      } catch (error) {
+        console.warn(
+          "[AgentApplications] Approval notice was not stored:",
+          error instanceof Error ? error.message : error
+        );
+      }
       return (
         await tx
           .select()

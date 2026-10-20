@@ -21,6 +21,7 @@ import TeamWorkspace from "@/pages/TeamWorkspace";
 import TeamRequestDetail from "@/pages/TeamRequestDetail";
 import AccessLogin from "@/pages/AccessLogin";
 import AgentLogin from "@/pages/AgentLogin";
+import AgentJoinInfo from "@/pages/AgentJoinInfo";
 import OwnerLogin from "@/pages/OwnerLogin";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -48,6 +49,7 @@ function Router() {
       <Route path={"/team-login"} component={TeamLogin} />
       <Route path={"/login"} component={AccessLogin} />
       <Route path={"/agent-login"} component={AgentLogin} />
+      <Route path={"/join-as-agent"} component={AgentJoinInfo} />
       <Route path={"/agent-dashboard"} component={TeamWorkspace} />
       <Route path={"/employee-dashboard"} component={TeamWorkspace} />
       <Route path={"/team-request/:requestId"} component={TeamRequestDetail} />

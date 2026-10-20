@@ -18,6 +18,14 @@ import { trpc } from "@/lib/trpc";
 import { AgentApplicationDocumentReview } from "@/components/AgentApplicationDocumentReview";
 import { useSearch } from "wouter";
 import {
+  findPhoneMatch,
+  isCompleteSaudiMobile,
+  looksLikePhoneQuery,
+  matchesApplicationSearch,
+  normalizePhoneQuery,
+  normalizeStoredPhone,
+} from "@/lib/phoneSearch";
+import {
   AlertCircle,
   BadgeCheck,
   CheckCircle2,
@@ -28,6 +36,7 @@ import {
   Search,
   ShieldCheck,
   UserRound,
+  X,
   XCircle,
 } from "lucide-react";
 import React, {
@@ -70,22 +79,20 @@ const defaultPermissions: ApplicationPermissions = {
   canAddCustomerUpdate: true,
 };
 
-function normalizePhone(value: string) {
-  const arabicDigits: Record<string, string> = {
-    "٠": "0",
-    "١": "1",
-    "٢": "2",
-    "٣": "3",
-    "٤": "4",
-    "٥": "5",
-    "٦": "6",
-    "٧": "7",
-    "٨": "8",
-    "٩": "9",
-  };
-  return value
-    .replace(/[٠-٩]/g, digit => arabicDigits[digit] ?? digit)
-    .replace(/\D/g, "");
+/** Renders a stored phone with the searched digits highlighted. */
+function HighlightedPhone({ phone, query }: { phone: string; query: string }) {
+  const match = looksLikePhoneQuery(query) ? findPhoneMatch(phone, query) : null;
+  const display = normalizeStoredPhone(phone) || phone;
+  if (!match) return <>{phone}</>;
+  return (
+    <>
+      {display.slice(0, match.start)}
+      <mark className="rounded bg-[#fff1b8] px-0.5 font-black text-[#5b4200]">
+        {display.slice(match.start, match.end)}
+      </mark>
+      {display.slice(match.end)}
+    </>
+  );
 }
 
 function readableDate(value: number, isEnglish: boolean) {
@@ -109,6 +116,7 @@ export function AgentApplicationsPanel() {
   const review = trpc.agentApplications.review.useMutation();
   const utils = trpc.useUtils();
   const noteId = useId();
+  const searchId = useId();
   const reviewingRef = useRef(false);
   const [filter, setFilter] = useState<"all" | ApplicationStatus>("pending");
   const [search, setSearch] = useState("");
@@ -161,7 +169,19 @@ export function AgentApplicationsPanel() {
         pending: "Pending",
         approved: "Approved",
         rejected: "Rejected",
-        search: "Search by name or mobile number",
+        search: "Search by mobile number or name",
+        searchPlaceholder: "05XXXXXXXX, +966…, or applicant name",
+        searchHint:
+          "Arabic digits, +966, and numbers without the leading 0 are accepted. Match counts appear on every status filter.",
+        clearSearch: "Clear search",
+        phoneMode: "Searching by mobile",
+        nameMode: "Searching by name",
+        results: (count: number) =>
+          count === 1 ? "1 matching application" : `${count} matching applications`,
+        noPhoneMatch: "No membership application uses this mobile number.",
+        noNameMatch: "No membership application matches this name.",
+        otherStatusMatches: "No match in this status. Matches were found in:",
+        exactMatch: "Exact mobile match",
         refresh: "Refresh",
         loading: "Loading membership applications…",
         loadError: "We could not load membership applications.",
@@ -211,7 +231,25 @@ export function AgentApplicationsPanel() {
         pending: "بانتظار المراجعة",
         approved: "تمت الموافقة",
         rejected: "مرفوضة",
-        search: "البحث بالاسم أو رقم الجوال",
+        search: "البحث برقم الجوال أو الاسم",
+        searchPlaceholder: "05XXXXXXXX أو ‎+966… أو اسم المتقدم",
+        searchHint:
+          "يقبل الأرقام العربية و‎+966 والرقم دون الصفر، وتظهر أعداد المطابقات على أزرار كل حالة.",
+        clearSearch: "مسح البحث",
+        phoneMode: "بحث برقم الجوال",
+        nameMode: "بحث بالاسم",
+        results: (count: number) =>
+          count === 0
+            ? "لا توجد طلبات مطابقة"
+            : count === 1
+              ? "طلب واحد مطابق"
+              : count === 2
+                ? "طلبان مطابقان"
+                : `${count} طلبات مطابقة`,
+        noPhoneMatch: "لا يوجد طلب انضمام مسجل بهذا الرقم.",
+        noNameMatch: "لا يوجد طلب انضمام بهذا الاسم.",
+        otherStatusMatches: "لا توجد مطابقة في هذه الحالة، وتوجد مطابقات في:",
+        exactMatch: "تطابق تام لرقم الجوال",
         refresh: "تحديث",
         loading: "جارٍ تحميل طلبات الانضمام…",
         loadError: "تعذر تحميل طلبات الانضمام.",
@@ -254,21 +292,44 @@ export function AgentApplicationsPanel() {
   const pendingCount = applications.filter(
     application => application.status === "pending"
   ).length;
-  const normalizedSearch = normalizePhone(search);
+  const trimmedSearch = search.trim();
+  const searchActive = trimmedSearch.length > 0;
+  const searchIsPhone = looksLikePhoneQuery(trimmedSearch);
+  const normalizedPhoneQuery = searchIsPhone
+    ? normalizePhoneQuery(trimmedSearch)
+    : "";
+  const searchMatches = useMemo(
+    () =>
+      applications.filter(application =>
+        matchesApplicationSearch(application, trimmedSearch)
+      ),
+    [applications, trimmedSearch]
+  );
+  const matchCounts = useMemo(
+    () => ({
+      all: searchMatches.length,
+      pending: searchMatches.filter(item => item.status === "pending").length,
+      approved: searchMatches.filter(item => item.status === "approved").length,
+      rejected: searchMatches.filter(item => item.status === "rejected").length,
+    }),
+    [searchMatches]
+  );
   const visibleApplications = useMemo(
     () =>
-      applications.filter(application => {
-        const matchesFilter = filter === "all" || application.status === filter;
-        const matchesName = application.fullName
-          .toLocaleLowerCase()
-          .includes(search.trim().toLocaleLowerCase());
-        const matchesPhone =
-          Boolean(normalizedSearch) &&
-          /^[+\d٠-٩()\s-]+$/.test(search.trim()) &&
-          normalizePhone(application.phone).includes(normalizedSearch);
-        return matchesFilter && (matchesName || matchesPhone);
-      }),
-    [applications, filter, normalizedSearch, search]
+      searchMatches.filter(
+        application => filter === "all" || application.status === filter
+      ),
+    [searchMatches, filter]
+  );
+  const exactMatchId =
+    searchIsPhone && isCompleteSaudiMobile(normalizedPhoneQuery)
+      ? (searchMatches.find(
+          application =>
+            normalizeStoredPhone(application.phone) === normalizedPhoneQuery
+        )?.id ?? null)
+      : null;
+  const otherStatuses = (["pending", "approved", "rejected"] as const).filter(
+    status => status !== filter && matchCounts[status] > 0
   );
 
   const statusLabel = (status: ApplicationStatus) =>
@@ -409,16 +470,42 @@ export function AgentApplicationsPanel() {
             aria-hidden="true"
           />
           <Input
+            id={searchId}
+            type="search"
             value={search}
             onChange={(event: ChangeEvent<HTMLInputElement>) =>
               setSearch(event.target.value)
             }
-            placeholder={copy.search}
+            onKeyDown={event => {
+              if (event.key === "Escape" && search) {
+                event.preventDefault();
+                setSearch("");
+              }
+            }}
+            placeholder={copy.searchPlaceholder}
             aria-label={copy.search}
-            className="h-10 rounded-xl bg-white px-10"
+            aria-describedby={`${searchId}-hint ${searchId}-status`}
+            autoComplete="off"
+            enterKeyHint="search"
+            spellCheck={false}
+            className="h-11 rounded-xl bg-white px-10 [&::-webkit-search-cancel-button]:hidden"
           />
+          {search ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                document.getElementById(searchId)?.focus();
+              }}
+              aria-label={copy.clearSearch}
+              className="absolute top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-[#60778f] transition-colors hover:bg-[#eef6ff] hover:text-[#0668d9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0668d9] ltr:right-1.5 rtl:left-1.5"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          ) : null}
         </div>
         <div
+          role="group"
           className="flex flex-wrap gap-2"
           aria-label={
             isEnglish ? "Application status filter" : "تصفية حالة الطلب"
@@ -433,9 +520,30 @@ export function AgentApplicationsPanel() {
               className={`min-h-10 rounded-xl border px-3 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0668d9] ${filter === value ? "border-[#0668d9] bg-[#0668d9] text-white" : "border-[#cfe0f0] bg-white text-[#41617e] hover:bg-[#eef6ff]"}`}
             >
               {value === "all" ? copy.all : statusLabel(value)}
+              {searchActive ? (
+                <span
+                  className={`ms-1.5 inline-grid min-w-5 place-items-center rounded-full px-1 text-[11px] font-black ${filter === value ? "bg-white/25 text-white" : matchCounts[value] > 0 ? "bg-[#eaf3ff] text-[#0668d9]" : "bg-[#f1f4f8] text-[#8a9bad]"}`}
+                >
+                  {matchCounts[value]}
+                </span>
+              ) : null}
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-1 text-xs text-[#60778f]">
+        <p id={`${searchId}-hint`}>{copy.searchHint}</p>
+        <p
+          id={`${searchId}-status`}
+          aria-live="polite"
+          aria-atomic="true"
+          className="font-bold text-[#31516e]"
+        >
+          {searchActive && !list.isLoading && !list.isError
+            ? `${searchIsPhone ? copy.phoneMode : copy.nameMode} · ${copy.results(visibleApplications.length)}`
+            : ""}
+        </p>
       </div>
 
       {list.isLoading ? (
@@ -470,13 +578,48 @@ export function AgentApplicationsPanel() {
         </div>
       ) : null}
       {!list.isLoading && !list.isError && visibleApplications.length === 0 ? (
-        <div className="mt-5 grid min-h-36 place-items-center rounded-2xl border border-dashed border-[#cfe0f0] bg-[#fbfdff] px-4 text-center text-sm text-[#60778f]">
+        <div className="mt-5 grid min-h-36 place-items-center rounded-2xl border border-dashed border-[#cfe0f0] bg-[#fbfdff] px-4 py-6 text-center text-sm text-[#60778f]">
           <div>
             <UserRound
               className="mx-auto h-7 w-7 text-[#87bff4]"
               aria-hidden="true"
             />
-            <p className="mt-2">{copy.empty}</p>
+            {searchActive && otherStatuses.length > 0 ? (
+              <>
+                <p className="mt-2 font-bold text-[#31516e]">
+                  {copy.otherStatusMatches}
+                </p>
+                <div className="mt-3 flex flex-wrap justify-center gap-2">
+                  {otherStatuses.map(status => (
+                    <Button
+                      key={status}
+                      type="button"
+                      variant="outline"
+                      onClick={() => setFilter(status)}
+                      className="h-9 rounded-xl border-[#b7dbff] bg-white text-[#0668d9] hover:bg-[#f3f9ff]"
+                    >
+                      {statusLabel(status)} ({matchCounts[status]})
+                    </Button>
+                  ))}
+                </div>
+              </>
+            ) : searchActive ? (
+              <>
+                <p className="mt-2">
+                  {searchIsPhone ? copy.noPhoneMatch : copy.noNameMatch}
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setSearch("")}
+                  className="mt-2 h-9 rounded-xl text-[#0668d9]"
+                >
+                  {copy.clearSearch}
+                </Button>
+              </>
+            ) : (
+              <p className="mt-2">{copy.empty}</p>
+            )}
           </div>
         </div>
       ) : null}
@@ -488,7 +631,7 @@ export function AgentApplicationsPanel() {
               key={application.id}
               id={`agent-application-${application.id}`}
               tabIndex={-1}
-              className={`overflow-hidden rounded-2xl border bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0878f9] ${targetApplicationId === application.id ? "border-[#0878f9] ring-2 ring-[#cce5ff]" : "border-[#dce8f6]"}`}
+              className={`overflow-hidden rounded-2xl border bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0878f9] ${targetApplicationId === application.id || exactMatchId === application.id ? "border-[#0878f9] ring-2 ring-[#cce5ff]" : "border-[#dce8f6]"}`}
             >
               <div className="flex items-start gap-3 bg-[#fbfdff] p-4">
                 <span
@@ -525,8 +668,18 @@ export function AgentApplicationsPanel() {
                     </Badge>
                   </div>
                   <p className="mt-1 text-xs text-[#60778f]" dir="ltr">
-                    {application.phone} · {application.email}
+                    <HighlightedPhone
+                      phone={application.phone}
+                      query={trimmedSearch}
+                    />{" "}
+                    · {application.email}
                   </p>
+                  {exactMatchId === application.id ? (
+                    <p className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-[#eaf3ff] px-2 py-0.5 text-[11px] font-black text-[#0668d9]">
+                      <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      {copy.exactMatch}
+                    </p>
+                  ) : null}
                 </div>
               </div>
               <div className="space-y-3 p-4 text-sm">

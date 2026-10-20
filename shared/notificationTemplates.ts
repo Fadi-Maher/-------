@@ -23,7 +23,9 @@ export type NotificationTemplateKey =
   | "team.assignment_expired"
   | "team.customer_comment"
   | "team.customer_attachment"
-  | "team.customer_review";
+  | "team.customer_review"
+  | "team.agent_application_approved"
+  | "team.agent_application_rejected";
 
 export type NotificationTemplateText = {
   titleAr: string;
@@ -72,6 +74,9 @@ const messageVar = v("message", "نص الرسالة أو التحديث", "Mess
 const fileVar = v("file", "اسم الملف", "File name", "الهوية.pdf", "id-card.pdf");
 const customerVar = v("customer", "اسم العميل", "Customer name", "محمد علي", "Mohammed Ali");
 const serviceVar = v("service", "اسم الخدمة", "Service name", "تعقيب المعاملات", "Transaction follow-up");
+const applicantVar = v("name", "اسم المتقدم", "Applicant name", "سارة أحمد", "Sara Ahmed");
+const referenceVar = v("reference", "رقم طلب الانضمام", "Application reference", "JOIN-12");
+const reviewNoteVar = v("note", "ملاحظة الإدارة أو سبب القرار", "Administration note or reason", "نرجو إرفاق رخصة عمل سارية.", "Please attach a valid work license.");
 
 export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateDefinition[] = [
   {
@@ -344,6 +349,38 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateDefinition[] =
       messageAr: "قيّم العميل الخدمة {rating} من 5.",
       titleEn: "New review received",
       messageEn: "The customer rated the service {rating} out of 5.",
+    },
+  },
+  {
+    key: "team.agent_application_approved",
+    audience: "team",
+    type: "agent_application_approved",
+    labelAr: "قبول طلب انضمام معقب",
+    labelEn: "Agent application approved",
+    whenAr: "يصل إلى المعقب في لوحته عند موافقة الإدارة على طلب انضمامه، ويظهر له عند أول دخول.",
+    whenEn: "Delivered to the agent's workspace when the administration approves the application, and shown on the next sign-in.",
+    variables: [applicantVar, referenceVar, reviewNoteVar],
+    defaults: {
+      titleAr: "تمت الموافقة على طلب انضمامك",
+      messageAr: "مرحبًا {name}، تمت الموافقة على طلب الانضمام {reference} وتفعيل حسابك. يمكنك الآن استقبال طلبات العملاء وتقديم عروضك.",
+      titleEn: "Your application was approved",
+      messageEn: "Welcome {name}. Application {reference} was approved and your account is active. You can now receive customer requests and send quotes.",
+    },
+  },
+  {
+    key: "team.agent_application_rejected",
+    audience: "team",
+    type: "agent_application_rejected",
+    labelAr: "رفض طلب انضمام معقب",
+    labelEn: "Agent application rejected",
+    whenAr: "يظهر لمقدم الطلب عند دخوله من مسار المعقبين بعد رفض الإدارة لطلبه، مع سبب الرفض.",
+    whenEn: "Shown to the applicant on sign-in through the agent path after the administration rejects the application, with the reason.",
+    variables: [applicantVar, referenceVar, reviewNoteVar],
+    defaults: {
+      titleAr: "لم تتم الموافقة على طلب انضمامك",
+      messageAr: "نعتذر {name}، لم تتم الموافقة على طلب الانضمام {reference}. اطّلع على سبب القرار أدناه، ويسعدنا الرد على استفسارك عبر صفحة التواصل.",
+      titleEn: "Your application was not approved",
+      messageEn: "Sorry {name}, application {reference} was not approved. See the reason below; we are happy to answer questions through the contact page.",
     },
   },
 ] as const;

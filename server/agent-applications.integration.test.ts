@@ -5,6 +5,7 @@ import {
   agentApplications,
   auditLogs,
   staffAccounts,
+  teamNotifications,
   users,
 } from "../drizzle/schema";
 import {
@@ -13,6 +14,7 @@ import {
   submitAgentApplication,
 } from "./agentApplicationsDb";
 import { getActiveAgentAccountByPhone, getDb } from "./db";
+import { buildNotificationContent } from "./notificationTemplateStore";
 
 const permissions = {
   canViewAssigned: true,
@@ -65,6 +67,7 @@ describe("تكامل طلبات انضمام المعقبين", () => {
       expect(await getAgentApplicationStatus(rejectedPhone)).toMatchObject({
         hasActiveAgent: false,
         application: { id: rejected.id, reference: `JOIN-${rejected.id}`, status: "pending" },
+        decisionNotice: null,
       });
       const rejectedReview = await reviewAgentApplication({
         id: rejected.id,
@@ -74,10 +77,19 @@ describe("تكامل طلبات انضمام المعقبين", () => {
         actorUserId: reviewerId,
       });
       expect(rejectedReview).toMatchObject({ status: "rejected", activatedStaffAccountId: null });
-      expect(await getAgentApplicationStatus(rejectedPhone)).toMatchObject({
+      const rejectedStatus = await getAgentApplicationStatus(rejectedPhone);
+      expect(rejectedStatus).toMatchObject({
         hasActiveAgent: false,
         application: { status: "rejected", reviewNote: "لا تتوفر الخبرة المطلوبة حاليًا" },
       });
+      // The applicant sees the owner's editable rejection template on sign-in.
+      const expectedRejection = await buildNotificationContent(db, "team.agent_application_rejected", {
+        name: "معقب تكامل مؤقت",
+        reference: `JOIN-${rejected.id}`,
+        note: "لا تتوفر الخبرة المطلوبة حاليًا",
+      });
+      expect(rejectedStatus.decisionNotice).toEqual({ status: "rejected", ...expectedRejection });
+      expect(rejectedStatus.decisionNotice?.type).toBe("agent_application_rejected");
       expect(await getActiveAgentAccountByPhone(rejectedPhone)).toBeNull();
 
       const approvedPhone = testPhone(run, 8);
@@ -150,7 +162,31 @@ describe("تكامل طلبات انضمام المعقبين", () => {
       expect(await getAgentApplicationStatus(approvedPhone)).toMatchObject({
         hasActiveAgent: true,
         application: { id: pendingId, status: "approved" },
+        decisionNotice: { status: "approved", type: "agent_application_approved" },
       });
+
+      // Exactly one workspace notice for the new agent, even with concurrent approvals.
+      const agentUserId = accounts[0].userId ?? 0;
+      const approvalNotices = await db.select().from(teamNotifications).where(and(
+        eq(teamNotifications.recipientUserId, agentUserId),
+        eq(teamNotifications.type, "agent_application_approved"),
+      ));
+      expect(approvalNotices).toHaveLength(1);
+      const expectedApproval = await buildNotificationContent(db, "team.agent_application_approved", {
+        name: "معقب تكامل مؤقت",
+        reference: `JOIN-${pendingId}`,
+        note: "تمت المراجعة",
+      });
+      expect(approvalNotices[0]).toMatchObject({
+        requestId: null,
+        isRead: false,
+        title: expectedApproval.title,
+        message: expectedApproval.message,
+        titleEn: expectedApproval.titleEn,
+        messageEn: expectedApproval.messageEn,
+      });
+      // The notice never exposes the applicant's mobile number.
+      expect(`${approvalNotices[0].message} ${approvalNotices[0].messageEn}`).not.toContain(approvedPhone);
 
       const auditRows = await db.select().from(auditLogs).where(and(
         eq(auditLogs.actorUserId, reviewerId),
