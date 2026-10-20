@@ -258,7 +258,11 @@ describe("leadBot placement", () => {
     expect(isPublicAssistantPath("/")).toBe(true);
     expect(isPublicAssistantPath("/contact")).toBe(true);
     expect(isPublicAssistantPath("/join-as-agent")).toBe(true);
-    for (const path of ["/dashboard", "/sales-assistant", "/settings/notifications", "/employees", "/agents", "/agent-dashboard", "/employee-dashboard", "/team-request", "/audit"]) {
+    expect(isPublicAssistantPath("/support-center")).toBe(true);
+    // The request support page has its own chat; the admin support inbox is private.
+    expect(isPublicAssistantPath("/support")).toBe(false);
+    expect(isPublicAssistantPath("/support?topic=status")).toBe(false);
+    for (const path of ["/support-inbox", "/dashboard", "/sales-assistant", "/settings/notifications", "/employees", "/agents", "/agent-dashboard", "/employee-dashboard", "/team-request", "/audit"]) {
       expect(isPublicAssistantPath(path)).toBe(false);
     }
     const app = source("App.tsx");
