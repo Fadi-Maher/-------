@@ -28,6 +28,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { type ElementType, type FormEvent, useEffect, useState } from "react";
+import { requestPrefillFromSearch } from "@/lib/leadBotRequestPrefill";
 import { toast } from "sonner";
 
 const serviceSubcategories = ["خدمات إدارية وتشغيلية", "وثائق ومستندات أعمال", "تأسيس وتطوير الأعمال", "تنسيق مواعيد ومتابعات", "استشارة أو طلب مخصص"];
@@ -238,6 +239,14 @@ function HomeEnglish() {
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [pendingRequest, setPendingRequest] = useState<RequestDraft | null>(null);
   const [verificationOpen, setVerificationOpen] = useState(false);
+  // Sales assistant link: /?service=<id>#request preselects the closest category.
+  useEffect(() => {
+    const prefill = requestPrefillFromSearch(window.location.search);
+    if (!prefill) return;
+    setServiceType("service");
+    setServiceSubcategory(prefill.subcategory);
+    if (window.location.hash === "#request") requestAnimationFrame(() => document.getElementById("request")?.scrollIntoView({ block: "start" }));
+  }, []);
   const settings = trpc.settings.publicConfig.useQuery();
   const submitRequest = trpc.requests.create.useMutation();
   const submitCustomerRequest = trpc.requests.createForCustomer.useMutation();
@@ -365,6 +374,14 @@ function HomeArabic() {
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [pendingRequest, setPendingRequest] = useState<RequestDraft | null>(null);
   const [verificationOpen, setVerificationOpen] = useState(false);
+  // Sales assistant link: /?service=<id>#request preselects the closest category.
+  useEffect(() => {
+    const prefill = requestPrefillFromSearch(window.location.search);
+    if (!prefill) return;
+    setServiceType("طلب خدمة");
+    setServiceSubcategory(prefill.subcategory);
+    if (window.location.hash === "#request") requestAnimationFrame(() => document.getElementById("request")?.scrollIntoView({ block: "start" }));
+  }, []);
   const settings = trpc.settings.publicConfig.useQuery();
   const submitRequest = trpc.requests.create.useMutation();
   const submitCustomerRequest = trpc.requests.createForCustomer.useMutation();

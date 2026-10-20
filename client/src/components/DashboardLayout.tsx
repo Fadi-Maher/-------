@@ -1,6 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { AdminApplicationNotificationCenter } from "@/components/AdminApplicationNotificationCenter";
+import { SalesLeadAlertButton, SalesLeadMenuBadge } from "@/components/leadbot/dashboard/SalesLeadAlertButton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +22,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useIsMobile } from "@/hooks/useMobile";
-import { BadgeCheck, BellRing, Bot, BriefcaseBusiness, History, LayoutDashboard, LogOut, PanelLeft, Settings, Users } from "lucide-react";
+import { BadgeCheck, BellRing, Bot, BriefcaseBusiness, Headset, History, LayoutDashboard, LogOut, PanelLeft, Settings, Users } from "lucide-react";
 import { CSSProperties, useEffect } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -32,6 +33,7 @@ const menuItems = [
   { icon: BriefcaseBusiness, label: "الموظفين", path: "/employees" },
   { icon: Users, label: "العملاء", path: "/customers" },
   { icon: LayoutDashboard, label: "الطلبات", path: "/dashboard" },
+  { icon: Headset, label: "مساعد المبيعات", path: "/sales-assistant" },
   { icon: Settings, label: "إعدادات النموذج", path: "/settings" },
   { icon: Bot, label: "معرفة المساعد", path: "/settings/assistant" },
   { icon: BellRing, label: "الإشعارات والإعلانات", path: "/settings/notifications" },
@@ -157,6 +159,7 @@ function DashboardLayoutContent({ children }: DashboardLayoutContentProps) {
                         className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
                       />
                       <span>{item.label}</span>
+                      {item.path === "/sales-assistant" ? <SalesLeadMenuBadge notify={!isMobile} /> : null}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -210,7 +213,10 @@ function DashboardLayoutContent({ children }: DashboardLayoutContentProps) {
                 </div>
               </div>
             </div>
-            <AdminApplicationNotificationCenter />
+            <div className="flex items-center gap-2">
+              <SalesLeadAlertButton />
+              <AdminApplicationNotificationCenter />
+            </div>
           </div>
         )}
         <main className="flex-1 bg-[#f5f9ff] p-4 sm:p-6">{children}</main>

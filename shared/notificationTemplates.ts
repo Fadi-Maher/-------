@@ -25,7 +25,9 @@ export type NotificationTemplateKey =
   | "team.customer_attachment"
   | "team.customer_review"
   | "team.agent_application_approved"
-  | "team.agent_application_rejected";
+  | "team.agent_application_rejected"
+  | "team.lead_handoff_requested"
+  | "team.lead_hot";
 
 export type NotificationTemplateText = {
   titleAr: string;
@@ -77,6 +79,10 @@ const serviceVar = v("service", "اسم الخدمة", "Service name", "تعقي
 const applicantVar = v("name", "اسم المتقدم", "Applicant name", "سارة أحمد", "Sara Ahmed");
 const referenceVar = v("reference", "رقم طلب الانضمام", "Application reference", "JOIN-12");
 const reviewNoteVar = v("note", "ملاحظة الإدارة أو سبب القرار", "Administration note or reason", "نرجو إرفاق رخصة عمل سارية.", "Please attach a valid work license.");
+const leadVar = v("lead", "رقم العميل المحتمل", "Lead reference", "LEAD-24");
+const leadReasonVar = v("reason", "سبب التحويل", "Handoff reason", "طلب التحدث مع موظف", "Asked to talk to a person");
+const leadScoreVar = v("score", "تقييم العميل من 100", "Lead score out of 100", "82");
+const leadSummaryVar = v("summary", "ملخص البيانات (الجوال محجوب)", "Details summary (phone hidden)", "الاسم: سارة. الخدمة: السجل التجاري. الموعد: عاجل.", "Name: Sara. Service: Commercial registration. Timeline: Urgent.");
 
 export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateDefinition[] = [
   {
@@ -381,6 +387,38 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateDefinition[] =
       messageAr: "نعتذر {name}، لم تتم الموافقة على طلب الانضمام {reference}. اطّلع على سبب القرار أدناه، ويسعدنا الرد على استفسارك عبر صفحة التواصل.",
       titleEn: "Your application was not approved",
       messageEn: "Sorry {name}, application {reference} was not approved. See the reason below; we are happy to answer questions through the contact page.",
+    },
+  },
+  {
+    key: "team.lead_handoff_requested",
+    audience: "team",
+    type: "lead_handoff_requested",
+    labelAr: "طلب تحويل لموظف من مساعد المبيعات",
+    labelEn: "Sales assistant: human handoff requested",
+    whenAr: "يصل إلى موظفي المبيعات عندما يطلب زائر التحدث مع موظف أو يقدم شكوى في مساعد المبيعات.",
+    whenEn: "Sent to sales staff when a visitor asks for a person or files a complaint in the sales assistant.",
+    variables: [leadVar, leadReasonVar, leadSummaryVar],
+    defaults: {
+      titleAr: "طلب تحويل لموظف من مساعد المبيعات",
+      messageAr: "العميل المحتمل {lead}: {reason}. {summary} افتح «مساعد المبيعات» للرد.",
+      titleEn: "Sales assistant: a visitor wants a person",
+      messageEn: "Lead {lead}: {reason}. {summary} Open the Sales assistant to reply.",
+    },
+  },
+  {
+    key: "team.lead_hot",
+    audience: "team",
+    type: "lead_hot",
+    labelAr: "عميل محتمل ساخن",
+    labelEn: "Hot sales lead",
+    whenAr: "يصل إلى موظفي المبيعات عند اكتمال تأهيل عميل محتمل بتقييم ساخن لأول مرة.",
+    whenEn: "Sent to sales staff the first time a lead completes qualification with a hot score.",
+    variables: [leadVar, leadScoreVar, leadSummaryVar],
+    defaults: {
+      titleAr: "عميل محتمل ساخن ({score}/100)",
+      messageAr: "العميل المحتمل {lead}. {summary} تواصل معه في أقرب وقت.",
+      titleEn: "Hot lead ({score}/100)",
+      messageEn: "Lead {lead}. {summary} Please contact them soon.",
     },
   },
 ] as const;

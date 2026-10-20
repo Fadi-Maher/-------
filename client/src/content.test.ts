@@ -63,7 +63,7 @@ describe("النصوص العامة لمعاملاتي", () => {
     expect(maalamatiAssistant).toContain("trpc.assistant.chat.useMutation");
     expect(maalamatiAssistant).toContain("لا تشارك رقم الجوال أو الهوية أو رمز التحقق");
     expect(maalamatiAssistant).toContain("wa.me");
-    expect(appRoutes).toContain("<MaalamatiAssistant />");
+    expect(appRoutes).toContain("<SiteLeadBot />");
     expect(maalamatiAssistant.match(/<AssistantAvatar\s*\/>/g)).toHaveLength(2);
     expect(assistantAvatar).toContain("maalamati-assistant-avatar-original_dac6bf34.webp");
     expect(assistantAvatar).toContain('data-testid="assistant-avatar-fallback"');

@@ -448,3 +448,5 @@ export const pwaSubscriptions = mysqlTable("pwa_subscriptions", {
 });
 
 export type InsertPwaSubscription = typeof pwaSubscriptions.$inferInsert;
+
+export * from "./leadBotSchema";

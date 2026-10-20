@@ -12,21 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Switch } from "@/components/ui/switch";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { trpc } from "@/lib/trpc";
-import {
-  ArrowLeft,
-  ArrowRight,
-  Bell,
-  CheckCheck,
-  CheckCircle2,
-  ChevronDown,
-  ClipboardList,
-  HandCoins,
-  Loader2,
-  LogOut,
-  RefreshCw,
-  Trash2,
-  Volume2,
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, Bell, CheckCheck, CheckCircle2, ChevronDown, ClipboardList, HandCoins, Loader2, LogOut, RefreshCw, Trash2, Volume2, Headset } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
@@ -55,6 +41,8 @@ const notificationLabels: Record<string, string> = {
   quote_declined: "عروض أخرى",
   customer_comment: "رسائل العملاء",
   customer_review: "تقييمات",
+  lead_handoff_requested: "تحويلات المبيعات",
+  lead_hot: "عملاء ساخنون",
 };
 
 function playNotificationTone() {
@@ -152,7 +140,8 @@ export default function TeamWorkspace() {
     setOpenedNotificationIds(current => current.includes(item.id) ? current : [...current, item.id]);
     try {
       await markRead.mutateAsync({ notificationId: item.id });
-      if (item.requestId) openRequestPage(item.requestId);
+      if (item.type === "lead_handoff_requested" || item.type === "lead_hot") setLocation("/sales-assistant");
+      else if (item.requestId) openRequestPage(item.requestId);
     } catch (error) {
       setOpenedNotificationIds(current => current.filter(id => id !== item.id));
       toast.error(error instanceof Error ? error.message : (isEnglish ? "Could not open notification." : "تعذر فتح الإشعار."));
@@ -195,6 +184,7 @@ export default function TeamWorkspace() {
 
   return <main className="min-h-screen bg-[#f4f9ff]" dir={isEnglish ? "ltr" : "rtl"}>
     <header className="border-b border-[#dce8f6] bg-white"><div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4"><div className="flex items-center gap-3"><BrandMark className="h-11 w-11 rounded-2xl" isEnglish={isEnglish} /><div><p className="font-display text-lg font-black text-[#102a43]">{isEnglish ? "Maalamati Care · Operations" : "معاملاتي كير · فريق التشغيل"}</p><p className="text-xs text-[#60778f]">{isAgent ? (isEnglish ? "Agent portal" : "بوابة المعقبين") : (isEnglish ? "Employee portal" : "بوابة الموظفين")}</p></div></div><div className="flex items-center gap-2">
+      {isEmployee ? <Button type="button" variant="outline" onClick={() => setLocation("/sales-assistant")} className="rounded-xl border-[#cde3fa] bg-white text-[#0878f9]" aria-label={isEnglish ? "Sales assistant leads" : "مساعد المبيعات"}><Headset className="h-5 w-5 sm:me-1" /><span className="hidden sm:inline">{isEnglish ? "Sales assistant" : "مساعد المبيعات"}</span></Button> : null}
       <Popover><PopoverTrigger asChild><Button type="button" variant="outline" size="icon" className="relative rounded-xl border-[#cde3fa] bg-white text-[#0878f9]" aria-label={isEnglish ? "Open notifications" : "فتح الإشعارات"}><Bell className="h-5 w-5" />{notifications.data?.unreadCount ? <span className="absolute -left-2 -top-2 grid min-h-5 min-w-5 place-items-center rounded-full bg-[#d83c4f] px-1 text-[10px] font-black text-white">{notifications.data.unreadCount > 99 ? "99+" : notifications.data.unreadCount}</span> : null}</Button></PopoverTrigger><PopoverContent align="start" className="w-[min(94vw,420px)] rounded-2xl border-[#dce8f6] p-0" dir={isEnglish ? "ltr" : "rtl"}><div className="border-b border-[#e7eff8] p-4"><div className="flex items-center justify-between gap-3"><div><h2 className="font-display text-lg font-black text-[#17334f]">{isEnglish ? "Notifications" : "الإشعارات"}</h2><p className="mt-1 text-xs text-[#60778f]">{isEnglish ? "They update automatically and close after opening." : "تتحدث تلقائيًا وتختفي بعد فتحها"}</p></div><div className="flex items-center gap-2"><Volume2 className="h-4 w-4 text-[#60778f]" /><Switch checked={soundEnabled} onCheckedChange={enabled => { setSoundEnabled(enabled); if (enabled) playNotificationTone(); }} aria-label={isEnglish ? "Sound alerts" : "التنبيه الصوتي"} /></div></div><div className="mt-3 flex gap-2 overflow-x-auto pb-1">{Object.entries(notificationLabels).map(([value, label]) => <Button key={value} type="button" size="sm" variant={notificationFilter === value ? "default" : "outline"} onClick={() => setNotificationFilter(value)} className="shrink-0 rounded-full">{label}</Button>)}</div><div className="mt-3 flex flex-wrap justify-between gap-2">{notifications.data?.unreadCount ? <Button type="button" variant="ghost" size="sm" disabled={markAllRead.isPending} onClick={() => void readAllTeamNotifications()} className="text-[#0878f9]"><CheckCheck className="me-1 h-4 w-4" />{isEnglish ? "Read all" : "قراءة الكل"}</Button> : <span />}{notifications.data?.items.some(item => item.isRead) ? <Button type="button" variant="ghost" size="sm" disabled={clearRead.isPending} onClick={() => { if (window.confirm(isEnglish ? "Clear all read notifications?" : "مسح جميع الإشعارات المقروءة؟")) clearRead.mutate(); }} className="text-[#a23b3b]"><Trash2 className="me-1 h-4 w-4" />{isEnglish ? "Clear read" : "مسح المقروءة"}</Button> : null}</div></div><div className="max-h-[430px] overflow-y-auto p-2">{filteredNotifications.length ? filteredNotifications.map(item => <div key={item.id} className="mb-2 flex items-start gap-2 rounded-xl border border-[#b7dbff] bg-[#f0f8ff] p-2"><button type="button" onClick={() => void openTeamNotification(item)} className={`flex min-w-0 flex-1 items-start gap-3 p-1 ${isEnglish ? "text-left" : "text-right"}`}><span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#0878f9]" /><span className="min-w-0"><span className="block text-sm font-extrabold text-[#17334f]">{isEnglish ? item.titleEn ?? item.title : item.title}</span><span className="mt-1 block text-xs leading-6 text-[#60778f]">{isEnglish ? item.messageEn ?? item.message : item.message}</span><time className="mt-2 block text-[11px] font-bold text-[#8a9bad]">{new Date(item.createdAt).toLocaleString(isEnglish ? "en-US" : "ar-SA")}</time></span></button><Button type="button" variant="ghost" size="icon" disabled={deleteNotification.isPending} onClick={() => { setOpenedNotificationIds(current => current.includes(item.id) ? current : [...current, item.id]); deleteNotification.mutate({ notificationId: item.id }); }} className="h-8 w-8 shrink-0 text-[#9a5260]" aria-label={isEnglish ? "Delete notification" : "حذف الإشعار"}><Trash2 className="h-4 w-4" /></Button></div>) : <div className="px-5 py-10 text-center"><Bell className="mx-auto h-8 w-8 text-[#9dcaf2]" /><p className="mt-3 text-sm font-bold text-[#60778f]">{isEnglish ? "No new notifications in this category" : "لا توجد إشعارات جديدة ضمن هذا النوع"}</p></div>}</div></PopoverContent></Popover>
       <Button variant="outline" className="rounded-xl border-[#f0caca] text-[#a23b3b]" onClick={async () => { await logout(); window.location.assign("/team-login"); }}><LogOut className="me-2 h-4 w-4" /><span className="hidden sm:inline">{language.signOut}</span></Button>
     </div></div></header>

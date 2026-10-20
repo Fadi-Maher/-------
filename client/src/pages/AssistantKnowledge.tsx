@@ -126,6 +126,7 @@ export default function AssistantKnowledge() {
             <p className="section-kicker">المساعد الذكي</p>
             <h1 className="font-display mt-4 text-3xl font-extrabold tracking-[-0.06em] text-[#102a43] sm:text-4xl">قاعدة الأسئلة والأجوبة</h1>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-[#60778f]">أضف إجابات معتمدة ليستخدمها مساعد معاملاتي كير عند الرد. لا تضع بيانات عملاء أو أرقام طلبات أو معلومات سرية داخل قاعدة المعرفة.</p>
+            <p data-testid="sales-assistant-knowledge-note" className="mt-3 inline-flex max-w-3xl items-start gap-2 rounded-2xl border border-[#cde3fa] bg-[#f1f7ff] px-4 py-3 text-sm leading-7 text-[#17334f]"><Bot className="mt-1 h-4 w-4 shrink-0 text-[#0878f9]" aria-hidden="true" /><span>يستخدم «مساعد المبيعات» في الموقع الإجابات <strong>النشطة</strong> هنا فقط للرد على الأسئلة العامة، بالإنجليزية إن توفرت ترجمتها وإلا بالعربية. وتعطيل أي إجابة يوقف استخدامها فورًا.</span></p>
           </div>
           <div className="flex items-center gap-2 rounded-2xl border border-[#cfe3f8] bg-white px-4 py-3 text-sm font-bold text-[#31516e]">
             <Check className="h-5 w-5 text-[#19a961]" />

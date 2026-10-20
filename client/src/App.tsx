@@ -3,7 +3,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
-import { MaalamatiAssistant } from "./components/MaalamatiAssistant";
+import { SiteLeadBot } from "./components/leadbot/SiteLeadBot";
 import { AnnouncementBar } from "./components/AnnouncementBar";
 import { AuthModal } from "./components/AuthModal";
 import { BrandWelcome, WelcomePage } from "./components/BrandWelcome";
@@ -18,6 +18,7 @@ import EmployeesDashboard from "@/pages/EmployeesDashboard";
 import AuditDashboard from "@/pages/AuditDashboard";
 import TeamLogin from "@/pages/TeamLogin";
 import TeamWorkspace from "@/pages/TeamWorkspace";
+import SalesAssistantPage from "@/pages/SalesAssistantPage";
 import TeamRequestDetail from "@/pages/TeamRequestDetail";
 import AccessLogin from "@/pages/AccessLogin";
 import AgentLogin from "@/pages/AgentLogin";
@@ -62,6 +63,7 @@ function Router() {
       <Route path={"/settings"} component={RequestSettings} />
       <Route path={"/settings/assistant"} component={AssistantKnowledge} />
       <Route path={"/settings/notifications"} component={NotificationSettings} />
+      <Route path={"/sales-assistant"} component={SalesAssistantPage} />
       <Route path={"/track"} component={TrackRequest} />
       <Route path={"/terms-and-conditions"} component={TermsAndConditions} />
       <Route path={"/refund-and-cancellation"} component={RefundAndCancellation} />
@@ -89,7 +91,8 @@ function App() {
             <Toaster />
             <AnnouncementBar />
             <Router />
-            <MaalamatiAssistant />
+            {/* Sales assistant replaces the previous MaalamatiAssistant widget (kept in the codebase for rollback). */}
+            <SiteLeadBot />
             <BrandWelcome />
             <AuthModal />
           </TooltipProvider>

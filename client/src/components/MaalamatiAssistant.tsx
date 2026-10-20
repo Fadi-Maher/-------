@@ -11,24 +11,8 @@ const SESSION_STORAGE_KEY = "maalamati-assistant-history-session";
 const EMPTY_PUBLIC_ID = "00000000-0000-4000-8000-000000000000";
 type ConsentChoice = "pending" | "accepted" | "declined";
 
-const privatePathPrefixes = [
-  "/dashboard",
-  "/employees",
-  "/agents",
-  "/audit",
-  "/customers",
-  "/settings",
-  "/owner-login",
-  "/team-login",
-  "/agent-dashboard",
-  "/employee-dashboard",
-  "/team-request",
-];
-
-export function isPublicAssistantPath(pathname: string) {
-  return !privatePathPrefixes.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
-}
-
+import { isPublicAssistantPath } from "@/lib/publicAssistantPaths";
+export { isPublicAssistantPath };
 export function MaalamatiAssistant() {
   const { isEnglish } = useLanguage();
   const [location] = useLocation();
