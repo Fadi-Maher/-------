@@ -9,16 +9,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
-import { STATUS_LABELS, STATUS_ORDER, errorText, formatDateTime, formatPhone, leadServiceLabel, relativeTime, type LeadStatus } from "./labels";
+import { STATUS_ORDER, errorText, formatClock, formatDateTime, formatPhone, leadServiceLabel, relativeTime, scoreFactorLabel, statusLabel, type LeadStatus } from "./labels";
 import { GradeChip, StatusChip } from "./LeadsTab";
+import { useSalesLang } from "./salesI18n";
 import type { DetailMessage, LeadDetailResult } from "./types";
 
 const SUMMARY_FIELDS = LEAD_FIELDS.filter((field) => field !== "consent") as LeadField[];
 
 export function LeadDetailSheet({ leadId, onClose, staffName }: { leadId: number | null; onClose: () => void; staffName: string | null }) {
+  const { lang, dir } = useSalesLang();
   return (
     <Sheet open={leadId !== null} onOpenChange={(open) => (!open ? onClose() : undefined)}>
-      <SheetContent side="left" dir="rtl" className="w-full gap-0 overflow-hidden p-0 sm:max-w-xl [&>button:last-child]:hidden">
+      {/* Opens from the inline-end edge: left in Arabic, right in English. */}
+      <SheetContent side={dir === "rtl" ? "left" : "right"} dir={dir} lang={lang} className="w-full gap-0 overflow-hidden p-0 sm:max-w-xl [&>button:last-child]:hidden">
         {leadId !== null ? <LeadDetailBody leadId={leadId} onClose={onClose} staffName={staffName} /> : null}
       </SheetContent>
     </Sheet>
@@ -26,6 +29,7 @@ export function LeadDetailSheet({ leadId, onClose, staffName }: { leadId: number
 }
 
 function LeadDetailBody({ leadId, onClose, staffName }: { leadId: number; onClose: () => void; staffName: string | null }) {
+  const { lang, t } = useSalesLang();
   const utils = trpc.useUtils();
   const detail = trpc.leadBot.staff.get.useQuery({ leadId }, { refetchInterval: 5_000 });
   const refresh = async () => {
@@ -43,15 +47,15 @@ function LeadDetailBody({ leadId, onClose, staffName }: { leadId: number; onClos
       <header className="flex items-start justify-between gap-3 border-b border-[#dce8f6] bg-white px-5 py-4">
         <div className="min-w-0">
           <SheetTitle className="truncate font-display text-xl font-extrabold text-[#17334f]">
-            {detail.data?.lead.name || (detail.data ? "زائر بدون اسم" : "تفاصيل العميل المحتمل")}
+            {detail.data?.lead.name || (detail.data ? t("unnamed") : t("detailTitle"))}
           </SheetTitle>
           <SheetDescription className="mt-1 text-xs text-[#60778f]">
             {detail.data
-              ? `${detail.data.lead.kind === "partner" ? "طلب شراكة/معقّب" : "عميل مبيعات"} · LEAD-${detail.data.lead.id} · أُنشئ ${formatDateTime(detail.data.lead.createdAt)}`
-              : "تفاصيل العميل المحتمل"}
+              ? `${detail.data.lead.kind === "partner" ? t("kindPartner") : t("kindSales")} · LEAD-${detail.data.lead.id} · ${t("createdOn", { date: formatDateTime(detail.data.lead.createdAt, lang) })}`
+              : t("detailTitle")}
           </SheetDescription>
         </div>
-        <Button type="button" variant="ghost" size="icon" onClick={onClose} className="shrink-0 rounded-full text-[#60778f]" aria-label="إغلاق التفاصيل">
+        <Button type="button" variant="ghost" size="icon" onClick={onClose} className="shrink-0 rounded-full text-[#60778f]" aria-label={t("closeDetail")}>
           <X className="h-5 w-5" />
         </Button>
       </header>
@@ -64,8 +68,8 @@ function LeadDetailBody({ leadId, onClose, staffName }: { leadId: number; onClos
       ) : detail.isError || !detail.data ? (
         <div className="p-6 text-center">
           <AlertTriangle className="mx-auto h-8 w-8 text-amber-600" aria-hidden="true" />
-          <p className="mt-3 font-bold text-[#17334f]">تعذّر تحميل التفاصيل</p>
-          <Button type="button" onClick={() => void detail.refetch()} className="mt-4 rounded-xl bg-[#0878f9]">إعادة المحاولة</Button>
+          <p className="mt-3 font-bold text-[#17334f]">{t("detailError")}</p>
+          <Button type="button" onClick={() => void detail.refetch()} className="mt-4 rounded-xl bg-[#0878f9]">{t("retry")}</Button>
         </div>
       ) : (
         <DetailContent data={detail.data} staffName={staffName} onChanged={refresh} />
@@ -87,6 +91,7 @@ function Section({ title, children, aside }: { title: string; children: ReactNod
 }
 
 function DetailContent({ data, staffName, onChanged }: { data: LeadDetailResult; staffName: string | null; onChanged: () => Promise<void> }) {
+  const { lang, t, dir } = useSalesLang();
   const { lead, messages } = data;
   const handoff = data.conversation.handoff;
   const open = lead.handoffStatus === "waiting" || lead.handoffStatus === "active";
@@ -103,9 +108,9 @@ function DetailContent({ data, staffName, onChanged }: { data: LeadDetailResult;
     if (!lead.phone) return;
     try {
       await navigator.clipboard.writeText(formatPhone(lead.phone).replace(/\s/g, ""));
-      toast.success("تم النسخ");
+      toast.success(t("copied"));
     } catch {
-      toast.error("تعذّر النسخ");
+      toast.error(t("copyFailed"));
     }
   };
 
@@ -114,7 +119,7 @@ function DetailContent({ data, staffName, onChanged }: { data: LeadDetailResult;
       await update.mutateAsync({ leadId: lead.id, status });
       await onChanged();
     } catch (error) {
-      toast.error(errorText(error, "تعذّر تحديث الحالة."));
+      toast.error(errorText(error, t("statusFailed"), lang));
     }
   };
 
@@ -123,7 +128,7 @@ function DetailContent({ data, staffName, onChanged }: { data: LeadDetailResult;
       await update.mutateAsync({ leadId: lead.id, assignedTo });
       await onChanged();
     } catch (error) {
-      toast.error(errorText(error, "تعذّر التعيين."));
+      toast.error(errorText(error, t("assignFailed"), lang));
     }
   };
 
@@ -132,9 +137,9 @@ function DetailContent({ data, staffName, onChanged }: { data: LeadDetailResult;
       await update.mutateAsync({ leadId: lead.id, notes: notes.trim() || null });
       setEditingNotes(false);
       await onChanged();
-      toast.success("تم حفظ الملاحظة");
+      toast.success(t("noteSaved"));
     } catch (error) {
-      toast.error(errorText(error, "تعذّر حفظ الملاحظة."));
+      toast.error(errorText(error, t("noteFailed"), lang));
     }
   };
 
@@ -142,9 +147,9 @@ function DetailContent({ data, staffName, onChanged }: { data: LeadDetailResult;
     try {
       await resolve.mutateAsync({ leadId: lead.id });
       await onChanged();
-      toast.success("انتهى التحويل وعاد العميل إلى المساعد.");
+      toast.success(t("handoffEnded"));
     } catch (error) {
-      toast.error(errorText(error, "تعذّر إنهاء التحويل."));
+      toast.error(errorText(error, t("handoffEndFailed"), lang));
     }
   };
 
@@ -154,7 +159,7 @@ function DetailContent({ data, staffName, onChanged }: { data: LeadDetailResult;
         <div className="flex flex-wrap items-center gap-2">
           {lead.kind !== "partner" ? <GradeChip grade={lead.grade} score={lead.score} /> : null}
           <StatusChip status={lead.status} />
-          {!lead.qualified ? <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600">{lead.kind === "partner" ? "طلب انضمام كمعقّب" : "تأهيل غير مكتمل"}</span> : null}
+          {!lead.qualified ? <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600">{lead.kind === "partner" ? t("partnerPending") : t("qualificationIncomplete")}</span> : null}
         </div>
 
         <div className="rounded-2xl border border-[#dce8f6] bg-white p-4">
@@ -166,15 +171,15 @@ function DetailContent({ data, staffName, onChanged }: { data: LeadDetailResult;
               </a>
               <Button type="button" variant="outline" size="sm" onClick={() => void copyPhone()} className="rounded-xl border-[#dce8f6] bg-white">
                 <Copy className="me-1 h-4 w-4" aria-hidden="true" />
-                نسخ
+                {t("copy")}
               </Button>
             </div>
           ) : (
-            <p className="text-sm font-semibold text-[#60778f]">لم يترك رقم جوال</p>
+            <p className="text-sm font-semibold text-[#60778f]">{t("noPhone")}</p>
           )}
           <p className={cn("mt-2 inline-flex items-center gap-1 text-xs font-bold", lead.slots.consent ? "text-emerald-700" : "text-[#8a9bad]")}>
             <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
-            {lead.slots.consent ? "وافق على التواصل" : "لم يوافق بعد"}
+            {lead.slots.consent ? t("consented") : t("notConsented")}
           </p>
         </div>
 
@@ -184,56 +189,56 @@ function DetailContent({ data, staffName, onChanged }: { data: LeadDetailResult;
               <div className="flex items-start gap-2">
                 <Headset className={cn("mt-0.5 h-5 w-5 shrink-0", lead.handoffStatus === "waiting" ? "text-amber-700" : "text-emerald-700")} aria-hidden="true" />
                 <div>
-                  <p className="font-bold text-[#17334f]">{lead.handoffStatus === "active" ? `محادثة جارية مع ${handoff.agentName ?? "موظف"}` : "العميل بانتظار رد موظف"}</p>
+                  <p className="font-bold text-[#17334f]">{lead.handoffStatus === "active" ? t("handoffActive", { name: handoff.agentName ?? t("aTeamMember") }) : t("handoffWaiting")}</p>
                   <p className="mt-1 text-xs text-[#60778f]">
-                    السبب: {handoff.reason === "complaint" ? "شكوى" : "طلب موظف"} · {relativeTime(handoff.requestedAt)}
+                    {t("reasonLabel")} {handoff.reason === "complaint" ? t("reasonComplaint") : t("reasonRequested")} · {relativeTime(handoff.requestedAt, lang)}
                   </p>
                 </div>
               </div>
               <Button type="button" variant="outline" size="sm" onClick={() => void endHandoff()} disabled={resolve.isPending} className="rounded-xl border-[#dce8f6] bg-white">
                 {resolve.isPending ? <Loader2 className="me-1 h-4 w-4 motion-safe:animate-spin" aria-hidden="true" /> : <CheckCircle2 className="me-1 h-4 w-4" aria-hidden="true" />}
-                إنهاء التحويل
+                {t("endHandoff")}
               </Button>
             </div>
           </div>
         ) : null}
 
-        <Section title="ملخص التأهيل">
+        <Section title={t("summaryTitle")}>
           {SUMMARY_FIELDS.some((field) => lead.slots[field] !== undefined) ? (
             <dl className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
               {SUMMARY_FIELDS.filter((field) => lead.slots[field] !== undefined).map((field) => (
                 <div key={field} className="min-w-0">
-                  <dt className="text-xs font-semibold text-[#60778f]">{FIELD_LABELS[field].ar}</dt>
-                  <dd className="truncate text-sm font-bold text-[#17334f]" dir={field === "phone" ? "ltr" : undefined} style={field === "phone" ? { textAlign: "end" } : undefined}>
-                    {field === "phone" ? formatPhone(lead.slots.phone) : field === "service" ? leadServiceLabel(lead.slots.service) : slotValueLabel(field, lead.slots, "ar")}
+                  <dt className="text-xs font-semibold text-[#60778f]">{FIELD_LABELS[field][lang]}</dt>
+                  <dd className="truncate text-sm font-bold text-[#17334f]" dir={field === "phone" ? "ltr" : undefined} style={field === "phone" ? { textAlign: dir === "rtl" ? "right" : "left" } : undefined}>
+                    <bdi>{field === "phone" ? formatPhone(lead.slots.phone) : field === "service" ? leadServiceLabel(lead.slots.service, lang) : slotValueLabel(field, lead.slots, lang)}</bdi>
                   </dd>
                 </div>
               ))}
             </dl>
           ) : (
-            <p className="text-sm text-[#60778f]">لا توجد بيانات تأهيل بعد.</p>
+            <p className="text-sm text-[#60778f]">{t("noSummary")}</p>
           )}
         </Section>
 
         {lead.kind !== "partner" ? (
-          <Section title={`لماذا هذا التقييم؟ (${lead.score}/100)`}>
+          <Section title={t("scoreTitle", { score: lead.score })}>
             {lead.breakdown.length ? (
               <ul className="space-y-1.5">
                 {lead.breakdown.map((item) => (
                   <li key={item.key} className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-[#31516e]">{item.label}</span>
+                    <span className="text-[#31516e]">{scoreFactorLabel(item.key, item.label, lang)}</span>
                     <span className="font-black text-[#0878f9]">+{item.points}</span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-[#60778f]">لا توجد إشارات كافية بعد.</p>
+              <p className="text-sm text-[#60778f]">{t("noSignals")}</p>
             )}
           </Section>
         ) : null}
 
-        <Section title="حالة المتابعة">
-          <div className="flex flex-wrap gap-2" role="group" aria-label="حالة المتابعة">
+        <Section title={t("followUpTitle")}>
+          <div className="flex flex-wrap gap-2" role="group" aria-label={t("followUpTitle")}>
             {STATUS_ORDER.map((status) => (
               <button
                 key={status}
@@ -246,26 +251,26 @@ function DetailContent({ data, staffName, onChanged }: { data: LeadDetailResult;
                   lead.status === status ? "border-[#0878f9] bg-[#0878f9] text-white" : "border-[#dce8f6] bg-white text-[#17334f] hover:bg-[#f1f7ff]",
                 )}
               >
-                {STATUS_LABELS[status]}
+                {statusLabel(status, lang)}
               </button>
             ))}
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#eef3f9] pt-3">
             <p className="text-sm">
-              <span className="text-[#60778f]">المسؤول: </span>
-              <span className="font-bold text-[#17334f]">{lead.assignedTo || "غير معيّن"}</span>
+              <span className="text-[#60778f]">{t("assignedLabel")} </span>
+              <span className="font-bold text-[#17334f]"><bdi>{lead.assignedTo || t("unassigned")}</bdi></span>
             </p>
             {staffName && lead.assignedTo !== staffName ? (
               <Button type="button" variant="outline" size="sm" disabled={update.isPending} onClick={() => void assign(staffName)} className="rounded-xl border-[#dce8f6] bg-white">
                 <UserCheck className="me-1 h-4 w-4" aria-hidden="true" />
-                تعيين لي
+                {t("assignMe")}
               </Button>
             ) : null}
           </div>
         </Section>
 
-        <Section title="ملاحظات داخلية (لا تظهر للعميل)">
-          <label className="sr-only" htmlFor={`lead-notes-${lead.id}`}>ملاحظات داخلية</label>
+        <Section title={t("notesTitle")}>
+          <label className="sr-only" htmlFor={`lead-notes-${lead.id}`}>{t("notesLabel")}</label>
           <Textarea
             id={`lead-notes-${lead.id}`}
             value={notes}
@@ -273,19 +278,20 @@ function DetailContent({ data, staffName, onChanged }: { data: LeadDetailResult;
               setNotes(event.target.value);
               setEditingNotes(true);
             }}
-            placeholder="مثال: طلب عرضًا لعقد سنوي…"
+            placeholder={t("notesPlaceholder")}
+            dir="auto"
             maxLength={2000}
             className="min-h-20 rounded-xl border-[#dce8f6]"
           />
           {editingNotes ? (
             <div className="mt-2 flex gap-2">
-              <Button type="button" size="sm" onClick={() => void saveNotes()} disabled={update.isPending} className="rounded-xl bg-[#0878f9]">حفظ الملاحظة</Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => { setNotes(lead.notes ?? ""); setEditingNotes(false); }}>إلغاء</Button>
+              <Button type="button" size="sm" onClick={() => void saveNotes()} disabled={update.isPending} className="rounded-xl bg-[#0878f9]">{t("saveNote")}</Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => { setNotes(lead.notes ?? ""); setEditingNotes(false); }}>{t("cancel")}</Button>
             </div>
           ) : null}
         </Section>
 
-        <Section title={`نص المحادثة (${messages.length} رسالة)`}>
+        <Section title={t("transcriptTitle", { count: messages.length })}>
           <Transcript messages={messages} />
         </Section>
       </div>
@@ -295,17 +301,18 @@ function DetailContent({ data, staffName, onChanged }: { data: LeadDetailResult;
 }
 
 function Transcript({ messages }: { messages: DetailMessage[] }) {
+  const { lang, t } = useSalesLang();
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "nearest" });
   }, [messages.length]);
-  if (!messages.length) return <p className="text-sm text-[#60778f]">لا توجد رسائل.</p>;
+  if (!messages.length) return <p className="text-sm text-[#60778f]">{t("noMessages")}</p>;
   return (
-    <ol className="max-h-[420px] space-y-2 overflow-y-auto pe-1" aria-label="نص المحادثة">
+    <ol className="max-h-[420px] space-y-2 overflow-y-auto pe-1" aria-label={t("transcriptLabel")}>
       {messages.map((message) => {
         if (message.role === "system") {
           return (
-            <li key={message.id} className="mx-auto max-w-[90%] rounded-xl bg-slate-100 px-3 py-1.5 text-center text-xs text-slate-600">
+            <li key={message.id} dir="auto" className="mx-auto max-w-[90%] rounded-xl bg-slate-100 px-3 py-1.5 text-center text-xs text-slate-600">
               {message.text}
             </li>
           );
@@ -321,9 +328,9 @@ function Transcript({ messages }: { messages: DetailMessage[] }) {
               )}
             >
               <span className={cn("mb-0.5 block text-[11px] font-bold", visitor ? "text-white/80" : "text-[#60778f]")}>
-                {visitor ? "العميل" : agent ? message.authorName || "موظف" : "المساعد"} · {new Date(message.createdAt).toLocaleTimeString("ar-SA-u-nu-latn", { hour: "2-digit", minute: "2-digit" })}
+                {visitor ? t("roleVisitor") : agent ? message.authorName || t("roleAgent") : t("roleBot")} · {formatClock(message.createdAt, lang)}
               </span>
-              {message.text}
+              <span dir="auto" className="block">{message.text}</span>
             </div>
           </li>
         );
@@ -334,6 +341,7 @@ function Transcript({ messages }: { messages: DetailMessage[] }) {
 }
 
 function ReplyComposer({ leadId, handoffOpen, onSent }: { leadId: number; handoffOpen: boolean; onSent: () => Promise<void> }) {
+  const { lang, t, dir } = useSalesLang();
   const [text, setText] = useState("");
   const reply = trpc.leadBot.staff.reply.useMutation();
   const send = async () => {
@@ -344,7 +352,7 @@ function ReplyComposer({ leadId, handoffOpen, onSent }: { leadId: number; handof
       setText("");
       await onSent();
     } catch (error) {
-      toast.error(errorText(error, "تعذّر إرسال الرد. حاول مرة أخرى."));
+      toast.error(errorText(error, t("replyFailed"), lang));
     }
   };
   return (
@@ -355,7 +363,7 @@ function ReplyComposer({ leadId, handoffOpen, onSent }: { leadId: number; handof
         void send();
       }}
     >
-      <label htmlFor={`lead-reply-${leadId}`} className="mb-1.5 block text-xs font-bold text-[#31516e]">الرد على العميل</label>
+      <label htmlFor={`lead-reply-${leadId}`} className="mb-1.5 block text-xs font-bold text-[#31516e]">{t("replyLabel")}</label>
       <div className="flex items-end gap-2">
         <Textarea
           id={`lead-reply-${leadId}`}
@@ -367,17 +375,18 @@ function ReplyComposer({ leadId, handoffOpen, onSent }: { leadId: number; handof
               void send();
             }
           }}
-          placeholder={handoffOpen ? "اكتب ردك للعميل… (يظهر في نافذة المحادثة فورًا)" : "ابدأ محادثة مباشرة مع العميل…"}
+          placeholder={handoffOpen ? t("replyPlaceholderOpen") : t("replyPlaceholderStart")}
+          dir="auto"
           maxLength={1000}
           rows={2}
           className="min-h-11 flex-1 resize-none rounded-xl border-[#dce8f6]"
         />
-        <Button type="submit" disabled={!text.trim() || reply.isPending} className="h-11 rounded-xl bg-[#0878f9] px-4" aria-label="إرسال الرد">
-          {reply.isPending ? <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" /> : <Send className="h-4 w-4 rtl:-scale-x-100" aria-hidden="true" />}
-          <span className="ms-1 hidden sm:inline">إرسال</span>
+        <Button type="submit" disabled={!text.trim() || reply.isPending} className="h-11 rounded-xl bg-[#0878f9] px-4" aria-label={t("sendReply")}>
+          {reply.isPending ? <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" /> : <Send className={cn("h-4 w-4", dir === "rtl" && "-scale-x-100")} aria-hidden="true" />}
+          <span className="ms-1 hidden sm:inline">{t("send")}</span>
         </Button>
       </div>
-      <p className="mt-1.5 text-[11px] text-[#8a9bad]">لا تطلب من العميل رقم الهوية أو كلمات المرور أو بيانات البطاقة. Ctrl + Enter للإرسال.</p>
+      <p className="mt-1.5 text-[11px] text-[#8a9bad]">{t("replyHint")}</p>
     </form>
   );
 }

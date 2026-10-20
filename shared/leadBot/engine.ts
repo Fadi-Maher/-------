@@ -112,7 +112,14 @@ export type EngineSettings = {
   now?: number;
 };
 
-export type EngineInput = { text?: string; quickReply?: string };
+/**
+ * knowledgeMatch: the server found an approved knowledge answer for this text.
+ * Weak or generic intents (and unclear messages) are then treated as a general
+ * question, unless the text also carries qualification data.
+ */
+export type EngineInput = { text?: string; quickReply?: string; knowledgeMatch?: boolean };
+
+const KNOWLEDGE_OVERRIDABLE: Array<LeadIntent | "unknown"> = ["unknown", "faq", "start_request", "edit", "greeting", "thanks", "confirm", "deny"];
 
 /** Optional AI understanding hint (only used for unclear messages). */
 export type AiHint = {
@@ -739,6 +746,9 @@ export function processMessage(previous: EngineState, input: EngineInput, settin
     const extraction = extractSlots(text, state.pending);
     slots = { ...sanitizeAiSlots(ai?.slots), ...extraction.slots };
     invalidPhone = extraction.invalidPhone && !slots.phone;
+    if (input.knowledgeMatch && KNOWLEDGE_OVERRIDABLE.includes(intent) && !Object.keys(slots).length && !invalidPhone) {
+      intent = "faq";
+    }
     if (extraction.slots.phone && ctx.storedUserText) {
       ctx.storedUserText = maskPhonesInText(ctx.storedUserText);
     }

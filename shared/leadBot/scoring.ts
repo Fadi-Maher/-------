@@ -7,7 +7,7 @@ import type { LeadSlots } from "./understanding";
 
 export type LeadGrade = "hot" | "warm" | "cold";
 
-const SCORE_LABELS = {
+export const SCORE_LABELS = {
   business: { ar: "منشأة أو شركة", en: "Business customer" },
   individual: { ar: "عميل فرد", en: "Individual customer" },
   urgent: { ar: "يحتاجها خلال 48 ساعة", en: "Needs it within 48h" },

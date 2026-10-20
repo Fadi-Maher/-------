@@ -185,6 +185,15 @@ function parseFreeCity(raw: string): string | undefined {
   return LETTERS_ONLY_CITY.test(city) ? city : undefined;
 }
 
+/** Question words: «كيف أدفع؟» while the bot waits for a name or city is a question, not an answer. */
+const QUESTION_WORDS = ["كيف", "وش", "ايش", "هل", "متى", "وين", "ليش", "لماذا", "كم", "مين", "how", "what", "when", "where", "why", "who"];
+
+export function isQuestionLike(raw: string): boolean {
+  if (/[?؟]/.test(raw)) return true;
+  const variants = tokenVariants(raw);
+  return variantsIncludeAny(variants, QUESTION_WORDS);
+}
+
 const NOT_A_NAME_INTENTS: Array<LeadIntent | "unknown"> = [
   "skip",
   "restart",
@@ -241,7 +250,7 @@ export function extractSlots(raw: string, pending: LeadField | null): Extraction
 
   const city = LEAD_CITIES.find((entry) => entry.keywords.some((keyword) => variantsInclude(variants, keyword)));
   if (city) slots.city = city.id;
-  else if (pending === "city") {
+  else if (pending === "city" && !isQuestionLike(raw)) {
     const freeCity = parseFreeCity(raw);
     if (freeCity) slots.city = freeCity;
   }
@@ -253,7 +262,7 @@ export function extractSlots(raw: string, pending: LeadField | null): Extraction
   if (phone.phone) slots.phone = phone.phone;
   if (pending === "name" && !phone.phone) {
     // "تخطي" / "موظف" / "شكرًا"… are commands, not names (greetings like «هلا» stay valid names).
-    const name = NOT_A_NAME_INTENTS.includes(detectIntent(raw).intent) ? undefined : parseName(raw);
+    const name = NOT_A_NAME_INTENTS.includes(detectIntent(raw).intent) || isQuestionLike(raw) ? undefined : parseName(raw);
     if (name) slots.name = name;
   } else {
     const inline = raw.match(INLINE_NAME);

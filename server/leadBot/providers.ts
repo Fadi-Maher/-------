@@ -57,7 +57,37 @@ const STOP_WORDS = new Set([
   "me", "we", "it", "with", "and", "or", "please", "about", "there", "any", "have", "has", "maalamati", "care",
 ]);
 
-/** Meaningful normalised tokens with common Arabic prefixes folded. */
+/**
+ * Topic synonyms (normalised forms) folded to one canonical token, so everyday
+ * wording («كم ياخذ وقت؟», "How long does it take?") meets the stored question
+ * («كم تستغرق مدة الإنجاز؟») without an AI call. Canonical tokens are "topics":
+ * specific enough that one shared topic can identify an entry on its own.
+ */
+const TOPIC_SYNONYMS: Record<string, string[]> = {
+  دفع: ["دفع", "ادفع", "ندفع", "تدفع", "يدفع", "سداد", "اسدد", "تسديد", "pay", "payment", "payments", "paying"],
+  مده: ["مده", "وقت", "تستغرق", "يستغرق", "ياخذ", "تاخذ", "يخلص", "تخلص", "انجاز", "long", "duration", "takes", "take"],
+  الغاء: ["الغاء", "الغي", "نلغي", "تلغي", "الغيه", "cancel", "cancellation", "cancelling", "canceling"],
+  استرداد: ["استرداد", "استرجاع", "ارجاع", "استرد", "استرجع", "ترجعون", "refund", "refunds", "reimburse"],
+  مرفقات: ["مرفقات", "مرفق", "ملفات", "attachments", "attachment", "files"],
+  جوال: ["جوال", "جوالي", "رقمي", "mobile", "phone"],
+  معقب: ["معقب", "معقبين", "مقدم", "مقدمي", "provider", "providers", "agent", "agents"],
+  حكومي: ["حكومي", "حكوميه", "حكومه", "رسمي", "رسميه", "government", "governmental", "official"],
+  يدير: ["يدير", "تدير", "تديرها", "يديرها", "يملك", "صاحب", "operates", "operate", "operator", "owns", "runs"],
+  عروض: ["عروض", "عرض", "quotes", "quote", "offers", "offer"],
+  تتبع: ["تتبع", "اتابع", "متابعه", "اتتبع", "track", "tracking"],
+  تواصل: ["تواصل", "اتواصل", "اكلم", "دعم", "contact", "support", "reach"],
+  انضم: ["انضم", "انضمام", "join", "joining"],
+  سعر: ["سعر", "اسعار", "تكلفه", "يكلف", "تكلف", "اتعاب", "price", "prices", "cost", "costs"],
+  شارك: ["شارك", "اشارك", "اشاركها", "نشارك", "share", "sharing"],
+};
+
+const SYNONYM_INDEX = new Map<string, string>();
+for (const [canonical, words] of Object.entries(TOPIC_SYNONYMS)) {
+  for (const word of words) SYNONYM_INDEX.set(normalizeText(word), canonical);
+}
+const TOPIC_TOKENS = new Set(Object.keys(TOPIC_SYNONYMS));
+
+/** Meaningful normalised tokens with common Arabic prefixes folded and topic synonyms merged. */
 export function keyTokens(value: string): string[] {
   const words = normalizeText(value).split(" ").filter(Boolean);
   const tokens = new Set<string>();
@@ -68,7 +98,7 @@ export function keyTokens(value: string): string[] {
     else if (word.length > 3 && /^ال/.test(word)) word = word.slice(2);
     else if (word.length > 3 && /^[وفب]/.test(word)) word = word.slice(1);
     if (word.length < 2 || STOP_WORDS.has(word) || STOP_WORDS.has(raw)) continue;
-    tokens.add(word);
+    tokens.add(SYNONYM_INDEX.get(raw) ?? SYNONYM_INDEX.get(word) ?? word);
   }
   return Array.from(tokens);
 }
@@ -85,23 +115,48 @@ export function answerText(entry: KnowledgeEntry, lang: Lang): string {
 /**
  * Deterministic best match between the visitor question and the stored
  * questions. Requires enough shared meaningful words to avoid wrong answers.
+ * When that fails, a topic word (payment, duration, refund…) that exactly one
+ * entry covers is enough; topics shared by several entries never guess.
  */
 export function matchKnowledge(question: string, entries: KnowledgeEntry[]): { entry: KnowledgeEntry; score: number } | null {
   const queryTokens = keyTokens(question);
   if (!queryTokens.length || !entries.length) return null;
-  let best: { entry: KnowledgeEntry; score: number; shared: number } | null = null;
+  let best: { entry: KnowledgeEntry; score: number; shared: number; coverage: number } | null = null;
+  const topicOwners = new Map<string, KnowledgeEntry[]>();
+  const queryTopics = queryTokens.filter((token) => TOPIC_TOKENS.has(token));
   for (const entry of entries) {
     const entryTokens = keyTokens(entryText(entry));
     if (!entryTokens.length) continue;
     const entrySet = new Set(entryTokens);
+    for (const topic of queryTopics) {
+      if (entrySet.has(topic)) topicOwners.set(topic, [...(topicOwners.get(topic) ?? []), entry]);
+    }
     const shared = queryTokens.filter((token) => entrySet.has(token)).length;
     if (!shared) continue;
     const score = shared / Math.min(queryTokens.length, Math.max(1, Math.ceil(entryTokens.length / 2)));
-    if (!best || score > best.score || (score === best.score && shared > best.shared)) best = { entry, score, shared };
+    // Ties go to the entry the question covers most (a short, specific stored question).
+    const coverage = shared / entryTokens.length;
+    if (
+      !best ||
+      score > best.score ||
+      (score === best.score && (shared > best.shared || (shared === best.shared && coverage > best.coverage)))
+    ) {
+      best = { entry, score, shared, coverage };
+    }
   }
-  if (!best) return null;
-  const strongSingle = best.shared === 1 && queryTokens.length === 1 && best.score >= 1;
-  if (best.shared >= 2 ? best.score >= 0.5 : strongSingle) return { entry: best.entry, score: best.score };
+  if (best) {
+    const strongSingle = best.shared === 1 && queryTokens.length === 1 && best.score >= 1;
+    if (best.shared >= 2 ? best.score >= 0.5 : strongSingle) return { entry: best.entry, score: best.score };
+  }
+  const uniqueOwners = new Set<KnowledgeEntry>();
+  for (const topic of queryTopics) {
+    const owners = topicOwners.get(topic) ?? [];
+    if (owners.length === 1) uniqueOwners.add(owners[0]);
+  }
+  if (uniqueOwners.size === 1) {
+    const [entry] = Array.from(uniqueOwners);
+    return { entry, score: best?.entry === entry ? best.score : 0.5 };
+  }
   return null;
 }
 

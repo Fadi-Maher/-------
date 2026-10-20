@@ -85,6 +85,7 @@ import { phoneProfileRouter } from "./phoneProfileRouter";
 import { adminApplicationNotificationsRouter } from "./adminApplicationNotificationsRouter";
 import { notificationTemplatesRouter, siteAnnouncementsRouter } from "./siteContentRouter";
 import { leadBotRouter } from "./leadBot/router";
+import { invalidateLeadBotKnowledgeCache } from "./leadBot/service";
 import { getCustomerProfileByPhone, updateCustomerProfileByPhone } from "./customerProfileDb";
 import { assertCanRequestPhoneChange, assertPhoneAccessCurrent, changeCustomerPhone } from "./customerPhoneChangeDb";
 import { requestPhoneCode, verifyPhoneCode } from "./phoneOtpDb";
@@ -361,11 +362,15 @@ export const appRouter = router({
     }),
     knowledge: router({
       list: adminProcedure.query(() => listAssistantFaqs(true)),
-      create: adminProcedure.input(assistantFaqInput).mutation(async ({ input, ctx }) => createAssistantFaq({
-        ...input,
-        questionEn: input.questionEn?.trim() || null,
-        answerEn: input.answerEn?.trim() || null,
-      }, ctx.user.id)),
+      create: adminProcedure.input(assistantFaqInput).mutation(async ({ input, ctx }) => {
+        const created = await createAssistantFaq({
+          ...input,
+          questionEn: input.questionEn?.trim() || null,
+          answerEn: input.answerEn?.trim() || null,
+        }, ctx.user.id);
+        invalidateLeadBotKnowledgeCache();
+        return created;
+      }),
       update: adminProcedure.input(assistantFaqUpdateInput).mutation(async ({ input }) => {
         const { id, ...values } = input;
         const updated = await updateAssistantFaq(id, {
@@ -373,11 +378,13 @@ export const appRouter = router({
           questionEn: values.questionEn?.trim() || null,
           answerEn: values.answerEn?.trim() || null,
         });
+        invalidateLeadBotKnowledgeCache();
         if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "تعذر العثور على السؤال المطلوب." });
         return updated;
       }),
       delete: adminProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ input }) => {
         await deleteAssistantFaq(input.id);
+        invalidateLeadBotKnowledgeCache();
         return { success: true } as const;
       }),
     }),

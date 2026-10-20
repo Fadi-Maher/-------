@@ -25,7 +25,16 @@ import { detectIntent } from "../../shared/leadBot/understanding";
 import { ENV } from "../_core/env";
 import { invokeLLM } from "../_core/llm";
 import { notifyHandoffRequested, notifyHotLead } from "./notifications";
-import { FAQ_TIMEOUT_MS, NLU_TIMEOUT_MS, answerFromKnowledge, understandWithAi, withTimeout, type InvokeFn } from "./providers";
+import {
+  FAQ_TIMEOUT_MS,
+  NLU_TIMEOUT_MS,
+  answerFromKnowledge,
+  matchKnowledge,
+  understandWithAi,
+  withTimeout,
+  type InvokeFn,
+  type KnowledgeEntry,
+} from "./providers";
 import {
   DuplicateClientMessageError,
   commitTurn,
@@ -161,6 +170,27 @@ async function engineSettingsNow(now: number) {
   return { settings, engine: toEngineSettings(settings, siteWhatsapp, now) };
 }
 
+/**
+ * Active knowledge answers, read for every typed message so approved answers
+ * win over generic replies. Cached briefly; the knowledge page clears it on
+ * every create/update/delete.
+ */
+const KNOWLEDGE_CACHE_MS = 60_000;
+let knowledgeCache: { at: number; value: Promise<KnowledgeEntry[]> } | null = null;
+export function invalidateLeadBotKnowledgeCache() {
+  knowledgeCache = null;
+}
+function loadKnowledge(): Promise<KnowledgeEntry[]> {
+  const at = Date.now();
+  if (knowledgeCache && at - knowledgeCache.at < KNOWLEDGE_CACHE_MS) return knowledgeCache.value;
+  const value = listActiveKnowledge();
+  knowledgeCache = { at, value };
+  value.catch(() => {
+    if (knowledgeCache?.value === value) knowledgeCache = null;
+  });
+  return value;
+}
+
 /** Alerts run after the reply is returned; tests can await them. */
 let notificationTask: Promise<unknown> = Promise.resolve();
 export function waitForLeadNotifications() {
@@ -269,12 +299,14 @@ export async function sendVisitorMessage(
   if (!typed && !input.quickReply) throw new TRPCError({ code: "BAD_REQUEST", message: "empty_message" });
 
   const now = deps.now?.() ?? Date.now();
-  // Independent reads run together: one round trip instead of four.
-  const [replay, recentCount, { settings, engine }, existingLead] = await Promise.all([
+  const wantsKnowledge = Boolean(typed) && !input.quickReply && conversation.state.stage !== "escalated";
+  // Independent reads run together: one round trip instead of five.
+  const [replay, recentCount, { settings, engine }, existingLead, knowledge] = await Promise.all([
     findReplayByClientId(conversation.id, input.clientId),
     countUserMessagesSince(conversation.id, now - 60_000),
     engineSettingsNow(now),
     getLeadByConversation(conversation.id),
+    wantsKnowledge ? loadKnowledge().catch(() => [] as KnowledgeEntry[]) : Promise.resolve([] as KnowledgeEntry[]),
   ]);
   if (replay) return replayView(conversation.id, replay);
   if (recentCount >= MAX_MESSAGES_PER_MINUTE) {
@@ -285,9 +317,13 @@ export async function sendVisitorMessage(
   const state = conversation.state;
   const engineInput: EngineInput = input.quickReply ? { quickReply: input.quickReply } : { text: typed };
   const invoke = deps.invoke ?? invokeLLM;
+  // An approved answer that matches without AI turns a vague message into a general question.
+  if (engineInput.text && knowledge.length && matchKnowledge(engineInput.text, knowledge)) {
+    engineInput.knowledgeMatch = true;
+  }
 
   let aiHint: AiHint | null = null;
-  if (settings.aiAssist && engineInput.text && state.stage !== "escalated") {
+  if (settings.aiAssist && engineInput.text && !engineInput.knowledgeMatch && state.stage !== "escalated") {
     const detected = detectIntent(engineInput.text);
     if ((detected.intent === "unknown" || detected.confidence < 0.7) && engineInput.text.length >= 4) {
       aiHint = await withTimeout(understandWithAi(engineInput.text, state, invoke), NLU_TIMEOUT_MS).catch(() => null);
@@ -303,7 +339,7 @@ export async function sendVisitorMessage(
   if (result.needsFaqAnswer && engineInput.text) {
     const answer = await withTimeout(
       answerFromKnowledge(result.storedUserText ?? engineInput.text, state.lang, {
-        listKnowledge: listActiveKnowledge,
+        listKnowledge: () => (knowledge.length ? Promise.resolve(knowledge) : loadKnowledge()),
         aiAssist: settings.aiAssist,
         invoke,
       }),

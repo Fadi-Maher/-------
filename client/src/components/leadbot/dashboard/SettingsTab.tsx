@@ -8,20 +8,16 @@ import { Switch } from "@/components/ui/switch";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import { DEFAULT_LEAD_BOT_SETTINGS, formatWorkingHours, isWithinWorkingHours } from "../../../../../server/leadBot/settings";
-import { SERVICE_OPTIONS, errorText, relativeTime } from "./labels";
+import { errorText, relativeTime, serviceOptions } from "./labels";
 import { EmptyCard } from "./LeadsTab";
+import { DAY_LABELS, useSalesLang, type SalesKey } from "./salesI18n";
 import type { SettingsInput } from "./types";
 
-const DAY_LABELS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 const HOURS = Array.from({ length: 25 }, (_, hour) => hour);
 
-const VALIDATION_MESSAGES: Record<string, string> = {
-  invalid_hours: "يجب أن تكون نهاية الدوام بعد بدايته.",
-  invalid_days: "اختر يوم عمل واحدًا على الأقل.",
-  invalid_whatsapp: "رقم واتساب غير صحيح. اكتبه مثل 05XXXXXXXX أو ‎+9665XXXXXXXX، أو اتركه فارغًا لاستخدام رقم الموقع.",
-  invalid_sla: "اكتب وعد الاستجابة بالعربية والإنجليزية (حتى 80 حرفًا).",
-  invalid_escalation: "اختر عددًا بين 1 و5.",
-};
+const VALIDATION_CODES = ["invalid_hours", "invalid_days", "invalid_whatsapp", "invalid_sla", "invalid_escalation"] as const;
+const isValidationCode = (value: string): value is (typeof VALIDATION_CODES)[number] & SalesKey =>
+  (VALIDATION_CODES as readonly string[]).includes(value);
 
 function toInput(settings: SettingsInput & { updatedAt?: number; updatedByName?: string | null }): SettingsInput {
   return {
@@ -69,6 +65,7 @@ function Card({ icon, title, children, description }: { icon: ReactNode; title: 
 const fieldClass = "h-10 rounded-xl border border-[#dce8f6] bg-white px-3 text-sm font-semibold text-[#17334f] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0878f9]/40";
 
 export function SettingsTab() {
+  const { lang, t } = useSalesLang();
   const utils = trpc.useUtils();
   const settings = trpc.leadBot.staff.getSettings.useQuery();
   const save = trpc.leadBot.staff.saveSettings.useMutation();
@@ -97,7 +94,7 @@ export function SettingsTab() {
     );
   }
   if (settings.isError || !draft || !settings.data) {
-    return <EmptyCard icon={<AlertTriangle className="h-6 w-6" />} title="تعذّر تحميل الإعدادات" body={errorText(settings.error, "تحقق من الاتصال ثم أعد المحاولة.")} action={<Button type="button" onClick={() => void settings.refetch()} className="rounded-xl bg-[#0878f9]">إعادة المحاولة</Button>} />;
+    return <EmptyCard icon={<AlertTriangle className="h-6 w-6" />} title={t("settingsError")} body={errorText(settings.error, t("checkConnection"), lang)} action={<Button type="button" onClick={() => void settings.refetch()} className="rounded-xl bg-[#0878f9]">{t("retry")}</Button>} />;
   }
 
   const patch = (value: Partial<SettingsInput>) => {
@@ -110,7 +107,7 @@ export function SettingsTab() {
 
   const submit = async () => {
     if (localError) {
-      toast.error(VALIDATION_MESSAGES[localError]);
+      toast.error(t(localError));
       return;
     }
     try {
@@ -119,10 +116,10 @@ export function SettingsTab() {
       void utils.leadBot.visitor.config.invalidate();
       setDraft(toInput(saved));
       setSavedNotice(true);
-      toast.success("تم حفظ الإعدادات وتطبيقها على المحادثات الجديدة.");
+      toast.success(t("settingsSaved"));
     } catch (error) {
       const message = (error as { message?: string } | null)?.message ?? "";
-      toast.error(VALIDATION_MESSAGES[message] ?? errorText(error, "تعذّر حفظ الإعدادات. تحقق من الاتصال ثم حاول مرة أخرى."));
+      toast.error(isValidationCode(message) ? t(message) : errorText(error, t("settingsSaveFailed"), lang));
     }
   };
 
@@ -135,18 +132,18 @@ export function SettingsTab() {
       }}
     >
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card icon={<Settings2 className="h-4 w-4" />} title="سلوك المساعد">
-          <Row id="lb-enabled" title="تفعيل مساعد المبيعات" hint="عند الإيقاف يظهر للزائر رابط «تواصل ودعم» بدلًا من المحادثة." control={<Switch id="lb-enabled" checked={draft.enabled} onCheckedChange={(enabled) => patch({ enabled })} aria-describedby="lb-enabled-hint" />} />
-          <Row id="lb-ai" title="الفهم بالذكاء الاصطناعي" hint="يُستخدم فقط للرسائل غير الواضحة لاستخراج النية والبيانات، والردود تبقى نصوصًا معتمدة. تُحجب البيانات الحساسة قبل الإرسال." control={<Switch id="lb-ai" checked={draft.aiAssist} onCheckedChange={(aiAssist) => patch({ aiAssist })} aria-describedby="lb-ai-hint" />} />
-          <Row id="lb-hot" title="عرض موظف فوري للعملاء الساخنين" hint="للطلبات العاجلة ذات التقييم المرتفع خلال أوقات الدوام." control={<Switch id="lb-hot" checked={draft.offerHumanToHotLeads} onCheckedChange={(offerHumanToHotLeads) => patch({ offerHumanToHotLeads })} aria-describedby="lb-hot-hint" />} />
+        <Card icon={<Settings2 className="h-4 w-4" />} title={t("behaviorTitle")}>
+          <Row id="lb-enabled" title={t("enabledTitle")} hint={t("enabledHint")} control={<Switch id="lb-enabled" checked={draft.enabled} onCheckedChange={(enabled) => patch({ enabled })} aria-describedby="lb-enabled-hint" />} />
+          <Row id="lb-ai" title={t("aiTitle")} hint={t("aiHint")} control={<Switch id="lb-ai" checked={draft.aiAssist} onCheckedChange={(aiAssist) => patch({ aiAssist })} aria-describedby="lb-ai-hint" />} />
+          <Row id="lb-hot" title={t("hotTitle")} hint={t("hotHint")} control={<Switch id="lb-hot" checked={draft.offerHumanToHotLeads} onCheckedChange={(offerHumanToHotLeads) => patch({ offerHumanToHotLeads })} aria-describedby="lb-hot-hint" />} />
           <Row
             id="lb-escalate"
-            title="عرض التحويل لموظف بعد"
-            hint="عدد مرات عدم الفهم المتتالية قبل اقتراح موظف."
+            title={t("escalateTitle")}
+            hint={t("escalateHint")}
             control={
               <select id="lb-escalate" className={fieldClass} value={draft.autoEscalateAfterFallbacks} onChange={(event) => patch({ autoEscalateAfterFallbacks: Number(event.target.value) })} aria-describedby="lb-escalate-hint">
                 {[1, 2, 3, 4, 5].map((value) => (
-                  <option key={value} value={value}>{value} مرة</option>
+                  <option key={value} value={value}>{value === 1 ? t("timesOne") : t("timesMany", { count: value })}</option>
                 ))}
               </select>
             }
@@ -155,18 +152,18 @@ export function SettingsTab() {
 
         <Card
           icon={<Clock3 className="h-4 w-4" />}
-          title="أوقات الدوام والتواصل"
+          title={t("hoursTitle")}
           description={
             <>
-              تُستخدم لرسائل التحويل لموظف (بتوقيت الرياض). الحالي: {formatWorkingHours(draft, "ar")} —{" "}
-              <span className={cn("font-bold", openNow ? "text-emerald-700" : "text-amber-700")}>{openNow ? "ضمن الدوام الآن" : "خارج الدوام الآن"}</span>
+              {t("hoursDescription", { hours: formatWorkingHours(draft, lang) })}{" "}
+              <span className={cn("font-bold", openNow ? "text-emerald-700" : "text-amber-700")}>{openNow ? t("openNow") : t("closedNow")}</span>
             </>
           }
         >
           <fieldset className="py-2">
-            <legend className="text-sm font-bold text-[#17334f]">أيام العمل</legend>
+            <legend className="text-sm font-bold text-[#17334f]">{t("workingDays")}</legend>
             <div className="mt-2 flex flex-wrap gap-2">
-              {DAY_LABELS.map((label, day) => (
+              {DAY_LABELS[lang].map((label, day) => (
                 <button
                   key={day}
                   type="button"
@@ -178,11 +175,11 @@ export function SettingsTab() {
                 </button>
               ))}
             </div>
-            {!draft.workingDays.length ? <p className="mt-2 text-xs font-bold text-red-700" role="alert">اختر يوم عمل واحدًا على الأقل.</p> : null}
+            {!draft.workingDays.length ? <p className="mt-2 text-xs font-bold text-red-700" role="alert">{t("invalid_days")}</p> : null}
           </fieldset>
           <div className="grid grid-cols-2 gap-3 py-2">
             <label className="text-sm font-bold text-[#17334f]">
-              من الساعة
+              {t("fromHour")}
               <select className={cn(fieldClass, "mt-1 w-full")} value={draft.workStartHour} onChange={(event) => patch({ workStartHour: Number(event.target.value) })}>
                 {HOURS.slice(0, 24).map((hour) => (
                   <option key={hour} value={hour}>{String(hour).padStart(2, "0")}:00</option>
@@ -190,7 +187,7 @@ export function SettingsTab() {
               </select>
             </label>
             <label className="text-sm font-bold text-[#17334f]">
-              إلى الساعة
+              {t("toHour")}
               <select className={cn(fieldClass, "mt-1 w-full")} value={draft.workEndHour} onChange={(event) => patch({ workEndHour: Number(event.target.value) })}>
                 {HOURS.slice(1).map((hour) => (
                   <option key={hour} value={hour}>{String(hour).padStart(2, "0")}:00</option>
@@ -198,28 +195,28 @@ export function SettingsTab() {
               </select>
             </label>
           </div>
-          {draft.workEndHour <= draft.workStartHour ? <p className="text-xs font-bold text-red-700" role="alert">يجب أن تكون نهاية الدوام بعد بدايته.</p> : null}
+          {draft.workEndHour <= draft.workStartHour ? <p className="text-xs font-bold text-red-700" role="alert">{t("invalid_hours")}</p> : null}
           <div className="grid gap-3 py-2 sm:grid-cols-2">
             <label className="text-sm font-bold text-[#17334f]">
-              وعد الاستجابة (يظهر للعميل)
-              <Input className="mt-1 h-10 rounded-xl border-[#dce8f6]" value={draft.responseSlaAr} maxLength={80} onChange={(event) => patch({ responseSlaAr: event.target.value })} />
+              {t("slaArLabel")}
+              <Input className="mt-1 h-10 rounded-xl border-[#dce8f6]" dir="rtl" lang="ar" value={draft.responseSlaAr} maxLength={80} onChange={(event) => patch({ responseSlaAr: event.target.value })} />
             </label>
             <label className="text-sm font-bold text-[#17334f]">
-              Response promise (English)
-              <Input className="mt-1 h-10 rounded-xl border-[#dce8f6]" dir="ltr" value={draft.responseSlaEn} maxLength={80} onChange={(event) => patch({ responseSlaEn: event.target.value })} />
+              {t("slaEnLabel")}
+              <Input className="mt-1 h-10 rounded-xl border-[#dce8f6]" dir="ltr" lang="en" value={draft.responseSlaEn} maxLength={80} onChange={(event) => patch({ responseSlaEn: event.target.value })} />
             </label>
           </div>
           <label className="block py-2 text-sm font-bold text-[#17334f]">
-            رقم واتساب المبيعات (اختياري)
+            {t("whatsappLabel")}
             <Input className="mt-1 h-10 rounded-xl border-[#dce8f6]" dir="ltr" inputMode="tel" placeholder="05XXXXXXXX" value={draft.whatsappNumber} maxLength={24} onChange={(event) => patch({ whatsappNumber: event.target.value })} aria-describedby="lb-wa-hint" />
-            <span id="lb-wa-hint" className="mt-1 block text-xs font-normal text-[#60778f]">اتركه فارغًا لاستخدام رقم واتساب الدعم المحفوظ في إعدادات الموقع.</span>
+            <span id="lb-wa-hint" className="mt-1 block text-xs font-normal text-[#60778f]">{t("whatsappHint")}</span>
           </label>
         </Card>
       </div>
 
-      <Card icon={<ShoppingBag className="h-4 w-4" />} title="الخدمات المعروضة في المساعد" description="إذا لم تختر شيئًا تُعرض كل الخدمات. «خدمة أخرى» تظهر دائمًا.">
-        <div className="flex flex-wrap gap-2" role="group" aria-label="الخدمات المعروضة">
-          {SERVICE_OPTIONS.filter((option) => option.id !== "other").map((option) => (
+      <Card icon={<ShoppingBag className="h-4 w-4" />} title={t("servicesTitle")} description={t("servicesDescription")}>
+        <div className="flex flex-wrap gap-2" role="group" aria-label={t("servicesGroup")}>
+          {serviceOptions(lang).filter((option) => option.id !== "other").map((option) => (
             <button
               key={option.id}
               type="button"
@@ -236,24 +233,24 @@ export function SettingsTab() {
       <div className="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#dce8f6] bg-white/95 p-3 shadow-[0_12px_30px_rgba(16,42,67,.08)] backdrop-blur">
         <p className="text-xs text-[#60778f]" aria-live="polite">
           {savedNotice ? (
-            <span className="inline-flex items-center gap-1 font-bold text-emerald-700"><CheckCircle2 className="h-4 w-4" aria-hidden="true" /> تم حفظ الإعدادات وتطبيقها على المحادثات الجديدة.</span>
+            <span className="inline-flex items-center gap-1 font-bold text-emerald-700"><CheckCircle2 className="h-4 w-4" aria-hidden="true" /> {t("settingsSaved")}</span>
           ) : settings.data.updatedAt ? (
-            `آخر تحديث ${relativeTime(settings.data.updatedAt)}${settings.data.updatedByName ? ` بواسطة ${settings.data.updatedByName}` : ""}`
+            `${t("lastUpdated", { time: relativeTime(settings.data.updatedAt, lang) })}${settings.data.updatedByName ? t("updatedBy", { name: settings.data.updatedByName }) : ""}`
           ) : (
-            "الإعدادات الافتراضية"
+            t("defaultSettings")
           )}
         </p>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="ghost" onClick={() => { setSavedNotice(false); setDraft(toInput(DEFAULT_LEAD_BOT_SETTINGS)); }} className="rounded-xl text-[#60778f]">
-            الإعدادات الافتراضية
+            {t("restoreDefaults")}
           </Button>
           <Button type="button" variant="outline" disabled={!dirty || save.isPending} onClick={() => setDraft(toInput(settings.data!))} className="rounded-xl border-[#dce8f6] bg-white">
             <RotateCcw className="me-1 h-4 w-4" aria-hidden="true" />
-            تراجع
+            {t("undo")}
           </Button>
           <Button type="submit" disabled={!dirty || save.isPending || Boolean(localError)} className="rounded-xl bg-[#0878f9]">
             {save.isPending ? <Loader2 className="me-1 h-4 w-4 motion-safe:animate-spin" aria-hidden="true" /> : <Save className="me-1 h-4 w-4" aria-hidden="true" />}
-            حفظ التغييرات
+            {t("saveChanges")}
           </Button>
         </div>
       </div>

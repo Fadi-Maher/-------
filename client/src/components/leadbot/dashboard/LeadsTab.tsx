@@ -7,31 +7,34 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
-import { GRADE_TONES, SERVICE_OPTIONS, STATUS_LABELS, STATUS_ORDER, STATUS_TONES, formatPhone, gradeLabel, leadServiceLabel, relativeTime, type LeadStatus } from "./labels";
+import { GRADE_TONES, STATUS_ORDER, STATUS_TONES, formatPhone, gradeLabel, leadServiceLabel, relativeTime, serviceOptions, statusLabel, type LeadStatus } from "./labels";
+import { useSalesLang, type SalesKey } from "./salesI18n";
 import type { LeadListFiltersInput, StaffLead } from "./types";
 
 type Segment = "all" | "new" | "hot" | "waiting";
 
-const SEGMENTS: Array<{ id: Segment; label: string; icon: ReactNode }> = [
-  { id: "all", label: "كل العملاء المحتملين", icon: <Users className="h-4 w-4" aria-hidden="true" /> },
-  { id: "new", label: "جديد لم يُتواصل معه", icon: <Sparkles className="h-4 w-4" aria-hidden="true" /> },
-  { id: "hot", label: "عملاء ساخنون", icon: <Flame className="h-4 w-4" aria-hidden="true" /> },
-  { id: "waiting", label: "بانتظار موظف", icon: <Headset className="h-4 w-4" aria-hidden="true" /> },
+const SEGMENTS: Array<{ id: Segment; label: SalesKey; icon: ReactNode }> = [
+  { id: "all", label: "segAll", icon: <Users className="h-4 w-4" aria-hidden="true" /> },
+  { id: "new", label: "segNew", icon: <Sparkles className="h-4 w-4" aria-hidden="true" /> },
+  { id: "hot", label: "segHot", icon: <Flame className="h-4 w-4" aria-hidden="true" /> },
+  { id: "waiting", label: "segWaiting", icon: <Headset className="h-4 w-4" aria-hidden="true" /> },
 ];
 
 export function GradeChip({ grade, score }: { grade: LeadGrade; score?: number }) {
+  const { lang } = useSalesLang();
   const tone = GRADE_TONES[grade];
   return (
     <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ring-1", tone.chip)}>
       <span className={cn("h-1.5 w-1.5 rounded-full", tone.dot)} aria-hidden="true" />
-      {gradeLabel(grade)}
+      {gradeLabel(grade, lang)}
       {score !== undefined ? <span className="font-semibold opacity-80">· {score}</span> : null}
     </span>
   );
 }
 
 export function StatusChip({ status }: { status: LeadStatus }) {
-  return <span className={cn("inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold", STATUS_TONES[status])}>{STATUS_LABELS[status]}</span>;
+  const { lang } = useSalesLang();
+  return <span className={cn("inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold", STATUS_TONES[status])}>{statusLabel(status, lang)}</span>;
 }
 
 function useDebounced<T>(value: T, delay: number) {
@@ -47,6 +50,7 @@ const selectClass =
   "h-10 rounded-xl border border-[#dce8f6] bg-white px-3 text-sm font-semibold text-[#17334f] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0878f9]/40";
 
 export function LeadsTab({ onOpenLead, selectedLeadId }: { onOpenLead: (leadId: number) => void; selectedLeadId: number | null }) {
+  const { lang, t } = useSalesLang();
   const [segment, setSegment] = useState<Segment>("all");
   const [query, setQuery] = useState("");
   const [grade, setGrade] = useState<LeadGrade | "">("");
@@ -81,7 +85,7 @@ export function LeadsTab({ onOpenLead, selectedLeadId }: { onOpenLead: (leadId: 
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 overflow-x-auto pb-1" role="group" aria-label="تصفية العملاء المحتملين">
+      <div className="flex gap-2 overflow-x-auto pb-1" role="group" aria-label={t("filterGroup")}>
         {SEGMENTS.map((item) => {
           const badge = item.id === "waiting" ? (counts?.waiting ?? 0) + (counts?.active ?? 0) : 0;
           return (
@@ -96,7 +100,7 @@ export function LeadsTab({ onOpenLead, selectedLeadId }: { onOpenLead: (leadId: 
               )}
             >
               {item.icon}
-              {item.label}
+              {t(item.label)}
               {badge > 0 ? (
                 <span className={cn("grid h-5 min-w-5 place-items-center rounded-full px-1 text-[11px] font-black", segment === item.id ? "bg-white text-[#0878f9]" : "bg-[#d83c4f] text-white")}>{badge}</span>
               ) : null}
@@ -107,8 +111,8 @@ export function LeadsTab({ onOpenLead, selectedLeadId }: { onOpenLead: (leadId: 
 
       <div className="grid gap-3 rounded-2xl border border-[#dce8f6] bg-white p-3 sm:p-4 lg:grid-cols-[minmax(0,1fr)_auto]">
         <label className="relative block">
-          <span className="sr-only">ابحث بالاسم أو رقم الجوال</span>
-          <Search className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 text-[#60778f] ltr:left-3 rtl:right-3" aria-hidden="true" />
+          <span className="sr-only">{t("searchLabel")}</span>
+          <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#60778f]" aria-hidden="true" />
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -118,46 +122,46 @@ export function LeadsTab({ onOpenLead, selectedLeadId }: { onOpenLead: (leadId: 
                 setQuery("");
               }
             }}
-            placeholder="ابحث برقم الجوال أو الاسم (05… أو 9665… أو أرقام عربية)"
+            placeholder={t("searchPlaceholder")}
             className="h-10 rounded-xl border-[#dce8f6] ps-9 pe-9"
             inputMode="search"
             maxLength={80}
           />
           {query ? (
-            <button type="button" onClick={() => setQuery("")} className="absolute top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-[#60778f] hover:bg-[#f1f7ff] ltr:right-2 rtl:left-2" aria-label="مسح البحث">
+            <button type="button" onClick={() => setQuery("")} className="absolute end-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-[#60778f] hover:bg-[#f1f7ff]" aria-label={t("clearSearch")}>
               <X className="h-4 w-4" />
             </button>
           ) : null}
         </label>
         <div className="flex flex-wrap gap-2">
-          <label className="sr-only" htmlFor="lead-grade">التقييم</label>
+          <label className="sr-only" htmlFor="lead-grade">{t("gradeFilter")}</label>
           <select id="lead-grade" className={selectClass} value={segment === "hot" ? "hot" : grade} disabled={segment === "hot"} onChange={(event) => setGrade(event.target.value as LeadGrade | "")}>
-            <option value="">كل التقييمات</option>
+            <option value="">{t("allGrades")}</option>
             {(["hot", "warm", "cold"] as const).map((value) => (
-              <option key={value} value={value}>{gradeLabel(value)}</option>
+              <option key={value} value={value}>{gradeLabel(value, lang)}</option>
             ))}
           </select>
-          <label className="sr-only" htmlFor="lead-status">الحالة</label>
+          <label className="sr-only" htmlFor="lead-status">{t("statusFilter")}</label>
           <select id="lead-status" className={selectClass} value={segment === "new" ? "new" : status} disabled={segment === "new"} onChange={(event) => setStatus(event.target.value as LeadStatus | "")}>
-            <option value="">كل الحالات</option>
+            <option value="">{t("allStatuses")}</option>
             {STATUS_ORDER.map((value) => (
-              <option key={value} value={value}>{STATUS_LABELS[value]}</option>
+              <option key={value} value={value}>{statusLabel(value, lang)}</option>
             ))}
           </select>
-          <label className="sr-only" htmlFor="lead-service">الخدمة</label>
+          <label className="sr-only" htmlFor="lead-service">{t("serviceFilter")}</label>
           <select id="lead-service" className={selectClass} value={service} onChange={(event) => setService(event.target.value as LeadServiceId | "")}>
-            <option value="">كل الخدمات</option>
-            {SERVICE_OPTIONS.map((option) => (
+            <option value="">{t("allServices")}</option>
+            {serviceOptions(lang).map((option) => (
               <option key={option.id} value={option.id}>{option.label}</option>
             ))}
           </select>
-          <Button type="button" variant="outline" size="icon" className="h-10 w-10 rounded-xl border-[#dce8f6] bg-white" onClick={() => void list.refetch()} aria-label="تحديث القائمة" disabled={list.isFetching}>
+          <Button type="button" variant="outline" size="icon" className="h-10 w-10 rounded-xl border-[#dce8f6] bg-white" onClick={() => void list.refetch()} aria-label={t("refresh")} disabled={list.isFetching}>
             <RefreshCw className={cn("h-4 w-4", list.isFetching && "motion-safe:animate-spin")} />
           </Button>
         </div>
       </div>
 
-      <div aria-live="polite" className="sr-only">{list.isSuccess ? `${leads.length} عميل محتمل` : ""}</div>
+      <div aria-live="polite" className="sr-only">{list.isSuccess ? t("countLive", { count: leads.length }) : ""}</div>
 
       {list.isLoading ? (
         <div className="space-y-2" aria-hidden="true">
@@ -166,15 +170,15 @@ export function LeadsTab({ onOpenLead, selectedLeadId }: { onOpenLead: (leadId: 
           ))}
         </div>
       ) : list.isError ? (
-        <EmptyCard icon={<AlertTriangle className="h-6 w-6" />} title="تعذّر تحميل العملاء المحتملين" body="تحقق من الاتصال ثم أعد المحاولة." action={<Button type="button" onClick={() => void list.refetch()} className="rounded-xl bg-[#0878f9]">إعادة المحاولة</Button>} />
+        <EmptyCard icon={<AlertTriangle className="h-6 w-6" />} title={t("loadErrorTitle")} body={t("checkConnection")} action={<Button type="button" onClick={() => void list.refetch()} className="rounded-xl bg-[#0878f9]">{t("retry")}</Button>} />
       ) : leads.length === 0 ? (
         hasFilters ? (
-          <EmptyCard icon={<Search className="h-6 w-6" />} title="لا توجد نتائج مطابقة" body="جرّب رقمًا آخر أو أزل بعض عوامل التصفية." action={<Button type="button" variant="outline" onClick={clearFilters} className="rounded-xl bg-white">مسح عوامل التصفية</Button>} />
+          <EmptyCard icon={<Search className="h-6 w-6" />} title={t("noResultsTitle")} body={t("noResultsBody")} action={<Button type="button" variant="outline" onClick={clearFilters} className="rounded-xl bg-white">{t("clearFilters")}</Button>} />
         ) : (
-          <EmptyCard icon={<Inbox className="h-6 w-6" />} title="لا يوجد عملاء محتملون بعد" body="سيظهر هنا كل زائر يكمل التأهيل أو يطلب التحدث مع موظف عبر مساعد المبيعات في الموقع." />
+          <EmptyCard icon={<Inbox className="h-6 w-6" />} title={t("emptyTitle")} body={t("emptyBody")} />
         )
       ) : (
-        <ul className="space-y-2" aria-label="قائمة العملاء المحتملين">
+        <ul className="space-y-2" aria-label={t("listLabel")}>
           {leads.map((lead) => (
             <li key={lead.id}>
               <LeadRow lead={lead} selected={selectedLeadId === lead.id} onOpen={() => onOpenLead(lead.id)} />
@@ -187,6 +191,7 @@ export function LeadsTab({ onOpenLead, selectedLeadId }: { onOpenLead: (leadId: 
 }
 
 function LeadRow({ lead, selected, onOpen }: { lead: StaffLead; selected: boolean; onOpen: () => void }) {
+  const { lang, t, dir } = useSalesLang();
   const waiting = lead.handoffStatus === "waiting";
   const active = lead.handoffStatus === "active";
   const partner = lead.kind === "partner";
@@ -203,36 +208,36 @@ function LeadRow({ lead, selected, onOpen }: { lead: StaffLead; selected: boolea
     >
       <span className="flex min-w-0 items-center gap-3">
         <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-black", partner ? "bg-[#f3ecff] text-[#6b35ff]" : "bg-[#eaf4ff] text-[#0878f9]")} aria-hidden="true">
-          {partner ? <UserPlus className="h-5 w-5" /> : (lead.name?.trim()?.[0] ?? "؟")}
+          {partner ? <UserPlus className="h-5 w-5" /> : (lead.name?.trim()?.[0] ?? (lang === "en" ? "?" : "؟"))}
         </span>
         <span className="min-w-0">
           <span className="flex flex-wrap items-center gap-2">
-            <span className="truncate font-display text-base font-extrabold text-[#17334f]">{lead.name || "زائر بدون اسم"}</span>
+            <span className="truncate font-display text-base font-extrabold text-[#17334f]"><bdi>{lead.name || t("unnamed")}</bdi></span>
             {lead.unreadForStaff > 0 ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-[#d83c4f] px-2 py-0.5 text-[11px] font-black text-white">
                 <MessageSquareText className="h-3 w-3" aria-hidden="true" />
                 {lead.unreadForStaff}
-                <span className="sr-only">رسائل غير مقروءة</span>
+                <span className="sr-only">{t("unreadSr")}</span>
               </span>
             ) : null}
           </span>
-          <span className="mt-0.5 block truncate text-sm text-[#60778f]" dir="ltr" style={{ textAlign: "end" }}>
+          <span className="mt-0.5 block truncate text-sm text-[#60778f]" dir="ltr" style={{ textAlign: dir === "rtl" ? "right" : "left" }}>
             {lead.phone ? formatPhone(lead.phone) : "—"}
           </span>
         </span>
       </span>
       <span className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-[#31516e]">
-        <span className="truncate font-semibold">{partner ? "شريك/معقّب" : leadServiceLabel(lead.service)}</span>
-        {!lead.qualified ? <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">{partner ? "طلب انضمام" : "غير مكتمل"}</span> : null}
-        {waiting ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-black text-amber-800">بانتظار موظف</span> : null}
-        {active ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-black text-emerald-700">محادثة جارية</span> : null}
+        <span className="truncate font-semibold">{partner ? t("partnerTag") : leadServiceLabel(lead.service, lang)}</span>
+        {!lead.qualified ? <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">{partner ? t("joinRequestTag") : t("incompleteTag")}</span> : null}
+        {waiting ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-black text-amber-800">{t("waitingTag")}</span> : null}
+        {active ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-black text-emerald-700">{t("activeTag")}</span> : null}
       </span>
       <span className="flex flex-wrap items-center gap-2 sm:justify-end">
         {!partner ? <GradeChip grade={lead.grade} score={lead.score} /> : null}
         <StatusChip status={lead.status} />
         <span className="text-xs font-semibold text-[#8a9bad]">
-          <span className="sr-only">آخر نشاط: </span>
-          {relativeTime(lead.lastMessageAt)}
+          <span className="sr-only">{t("lastActivitySr")}</span>
+          {relativeTime(lead.lastMessageAt, lang)}
         </span>
       </span>
     </button>

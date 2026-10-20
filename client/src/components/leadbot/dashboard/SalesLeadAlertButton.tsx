@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
+import { useSalesLang } from "./salesI18n";
 
 export const SALES_SOUND_KEY = "maalamati-sales-sound";
 
@@ -56,6 +57,7 @@ export function playSalesTone() {
  */
 export function useSalesLeadAlerts({ notify }: { notify: boolean }) {
   const [location, navigate] = useLocation();
+  const { t } = useSalesLang();
   const alerts = trpc.leadBot.staff.alerts.useQuery(undefined, { refetchInterval: 15_000, refetchIntervalInBackground: true, retry: false });
   const previous = useRef<{ waiting: number; hotNew: number; unread: number } | null>(null);
 
@@ -66,19 +68,21 @@ export function useSalesLeadAlerts({ notify }: { notify: boolean }) {
     previous.current = { waiting: data.waiting, hotNew: data.hotNew, unread: data.unread };
     if (!before || !notify) return;
     const onSalesPage = location.startsWith("/sales-assistant");
-    const action = onSalesPage ? undefined : { label: "فتح", onClick: () => navigate("/sales-assistant") };
+    const action = onSalesPage ? undefined : { label: t("alertOpen"), onClick: () => navigate("/sales-assistant") };
     let alerted = false;
     if (data.waiting > before.waiting) {
-      toast.warning("عميل محتمل بانتظار موظف", { description: "طلب زائر التحدث مع موظف عبر مساعد المبيعات.", action });
+      toast.warning(t("alertWaitingTitle"), { description: t("alertWaitingBody"), action });
       alerted = true;
     } else if (data.hotNew > before.hotNew) {
-      toast.success("عميل محتمل ساخن جديد", { description: "أكمل زائر التأهيل بتقييم مرتفع.", action });
+      toast.success(t("alertHotTitle"), { description: t("alertHotBody"), action });
       alerted = true;
     } else if (data.unread > before.unread) {
-      toast("رسالة جديدة من عميل محتمل", { action });
+      toast(t("alertUnread"), { action });
       alerted = true;
     }
     if (alerted && isSalesSoundEnabled()) playSalesTone();
+    // Language changes must not replay alerts: only fresh counters trigger them.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [alerts.data, location, navigate, notify]);
 
   const waiting = alerts.data?.waiting ?? 0;
@@ -90,7 +94,7 @@ export function useSalesLeadAlerts({ notify }: { notify: boolean }) {
     unread,
     hotNew,
     badge: waiting + hotNew + unread,
-    label: `مساعد المبيعات: ${waiting} بانتظار موظف، ${hotNew} عميل ساخن جديد، ${unread} رسالة غير مقروءة`,
+    label: t("alertSummary", { waiting, hot: hotNew, unread }),
     open: () => navigate("/sales-assistant"),
   };
 }
