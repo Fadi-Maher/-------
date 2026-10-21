@@ -709,14 +709,18 @@ export function AuthModal() {
             </button>
           </div>
           <DialogDescription className="sr-only">
-            {isAgentIntent
+            {import.meta.env.PROD
+              ? isEnglish
+                ? "Mobile sign-in is temporarily paused until a real verification service is connected. You can send a new request or contact support."
+                : "الدخول بالجوال متوقف مؤقتًا حتى ربط خدمة تحقق فعلية. يمكنك إرسال طلب جديد أو التواصل مع الدعم."
+              : isAgentIntent
               ? agentCopy.lead
               : isEnglish
               ? "Enter your mobile and verify the code. Registered accounts open directly; new mobiles choose Customer or Agent. New agents submit a request for admin approval."
               : "أدخل رقم الجوال وتحقق من الرمز. الحساب المسجل يُفتح مباشرة، والرقم الجديد يختار عميلًا أو معقبًا. يرسل المعقب الجديد طلبًا لموافقة الإدارة."}
           </DialogDescription>
         </DialogHeader>
-        {import.meta.env.PROD ? <PhoneVerificationUnavailable /> : <>
+        {import.meta.env.PROD ? <PhoneVerificationUnavailable variant="dialog" onNavigate={() => setOpen(false)} /> : <>
         <ol
           aria-label={isEnglish ? "Account access steps" : "خطوات الدخول"}
           className="grid grid-cols-4 gap-1 rounded-2xl border border-[#e3eef9] bg-[#f5f9fd] p-1.5 sm:gap-1.5 sm:p-2"

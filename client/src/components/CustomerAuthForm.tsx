@@ -53,7 +53,9 @@ function mutationErrorMessage(error: unknown, fallback: string) {
 }
 
 export function CustomerAuthForm(props: CustomerAuthFormProps) {
-  if (import.meta.env.PROD) return <PhoneVerificationUnavailable />;
+  if (import.meta.env.PROD) {
+    return <PhoneVerificationUnavailable variant={props.variant === "modal" ? "dialog" : "card"} />;
+  }
   return <CustomerAuthFormContent {...props} />;
 }
 

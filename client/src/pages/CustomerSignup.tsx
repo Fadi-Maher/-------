@@ -12,12 +12,14 @@ export default function CustomerSignup() {
   const { isEnglish } = useLanguage();
   const signedIn = useRedirectSignedInVisitor(isEnglish);
   if (signedIn) return null;
+  // Live site: phone verification is paused, so the "verify your mobile first" panel would contradict the notice.
+  const phonePaused = import.meta.env.PROD;
 
   return (
     <div className="public-flat min-h-screen overflow-x-hidden bg-[#f5f9ff] text-[#102a43]" dir={isEnglish ? "ltr" : "rtl"}>
       <PublicHeader onChooseService={() => window.location.assign("/#request")} />
-      <main className="container grid min-h-[calc(100vh-150px)] items-center gap-10 py-10 lg:grid-cols-[.8fr_1.2fr] lg:py-16">
-        <section className="hidden lg:block">
+      <main className={`container grid min-h-[calc(100vh-150px)] items-center gap-10 py-10 lg:py-16 ${phonePaused ? "" : "lg:grid-cols-[.8fr_1.2fr]"}`}>
+        <section className={phonePaused ? "hidden" : "hidden lg:block"}>
           <div className="rounded-[2rem] bg-[linear-gradient(145deg,#eaf6ff,#ffffff)] p-9 shadow-[0_24px_60px_rgba(28,104,182,.12)]">
             <span className="grid h-14 w-14 place-items-center rounded-2xl bg-[#0878f9] text-white shadow-[0_10px_24px_rgba(8,120,249,.22)]">
               <FileCheck2 className="h-7 w-7" />

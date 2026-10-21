@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { CustomerNotificationCenter } from "@/components/CustomerNotificationCenter";
 import { PhoneVerificationUnavailable } from "@/components/PhoneVerificationUnavailable";
+import { PublicHeader } from "@/components/PublicHeader";
 import { CustomerQuotePanel, type CustomerQuote, type CustomerQuoteGroup } from "@/components/CustomerQuotePanel";
 import { RequestConversation } from "@/components/RequestConversation";
 import { RequestReviewPanel } from "@/components/RequestReviewPanel";
@@ -49,10 +50,20 @@ function normalizeSaudiPhone(value: string) {
 }
 
 export default function TrackRequest() {
-  if (import.meta.env.PROD) {
-    return <main className="mx-auto max-w-xl px-4 py-12"><LanguageToggle /><PhoneVerificationUnavailable /></main>;
-  }
+  if (import.meta.env.PROD) return <TrackingUnavailablePage />;
   return <TrackRequestContent />;
+}
+
+function TrackingUnavailablePage() {
+  const { isEnglish } = useLanguage();
+  return (
+    <div className="public-flat min-h-screen overflow-x-hidden bg-[#f5f9ff] text-[#102a43]" dir={isEnglish ? "ltr" : "rtl"}>
+      <PublicHeader onChooseService={() => window.location.assign("/#request")} />
+      <main className="container flex min-h-[calc(100vh-150px)] items-center py-10 sm:py-16">
+        <PhoneVerificationUnavailable variant="card" context="track" />
+      </main>
+    </div>
+  );
 }
 
 function TrackRequestContent() {

@@ -15,7 +15,15 @@ const keys = {
   accessToken: "maalamati_customer_access_token",
 } as const;
 
-export function readCustomerSession(storage: StorageReader): CustomerSession | null {
+/**
+ * Phone sessions were issued by demo codes; the live server rejects them, so the
+ * live site must not present a stale "signed in" customer that cannot submit.
+ */
+export function readCustomerSession(
+  storage: StorageReader,
+  phoneSessionsEnabled: boolean = !import.meta.env.PROD
+): CustomerSession | null {
+  if (!phoneSessionsEnabled) return null;
   const name = storage.getItem(keys.name)?.trim() || "";
   const phone = storage.getItem(keys.phone)?.trim() || "";
   const accessToken = storage.getItem(keys.accessToken)?.trim() || "";
