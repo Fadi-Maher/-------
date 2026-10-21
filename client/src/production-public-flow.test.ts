@@ -1,5 +1,8 @@
 import { readFileSync } from "node:fs";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { RequestReceivedConfirmation } from "./components/RequestReceivedConfirmation";
 import { readCustomerSession } from "./lib/customerSession";
 import { submitPublicRequest } from "./lib/publicRequestSubmission";
 
@@ -10,6 +13,8 @@ const authModal = read("./components/AuthModal.tsx");
 const customerAuthForm = read("./components/CustomerAuthForm.tsx");
 const trackPage = read("./pages/TrackRequest.tsx");
 const customerSignupPage = read("./pages/CustomerSignup.tsx");
+const confirmationSource = read("./components/RequestReceivedConfirmation.tsx");
+const css = read("./index.css");
 
 const draft = { requesterName: "عميل", phone: "0500000000", category: "طلب خدمة" as const, details: "تفاصيل الطلب" };
 
@@ -36,9 +41,51 @@ describe("live public request submission", () => {
       expect(flow.indexOf("submitPublicRequest")).toBeGreaterThan(-1);
       expect(flow.indexOf("submitPublicRequest")).toBeLessThan(flow.indexOf("setVerificationOpen(true)"));
     }
-    expect(home).toContain("تم استلام طلبك بنجاح، وسنتواصل معك على الجوال");
-    expect(home).toContain("Your request was received. We will contact you on");
+    expect(home.match(/<RequestReceivedConfirmation key=\{confirmationKey\} isEnglish=\{(true|false)\} mode=\{savedDirectly \? "received" : "saved"\} phone=\{submittedPhone\} \/>/g)).toHaveLength(2);
     expect(home).not.toMatch(/رقم مرجعي|reference number/i);
+    expect(confirmationSource).not.toMatch(/رقم مرجعي|reference number/i);
+  });
+});
+
+describe("animated request confirmation", () => {
+  const render = (isEnglish: boolean, mode: "received" | "saved") =>
+    renderToStaticMarkup(createElement(RequestReceivedConfirmation, { isEnglish, mode, phone: "0590000000" }));
+  it("announces the live confirmation with the phone number in Arabic and English", () => {
+    const ar = render(false, "received");
+    expect(ar).toContain('role="status"');
+    expect(ar).toContain("تم استلام طلبك بنجاح");
+    expect(ar).toContain("سنتواصل معك على الجوال");
+    expect(ar).toContain('dir="ltr"');
+    expect(ar).toContain("0590000000");
+    expect(ar).toContain("وصل طلبك إلى فريقنا");
+    const en = render(true, "received");
+    expect(en).toContain("Your request was received");
+    expect(en).toContain("We will contact you on");
+    expect(render(false, "saved")).toContain("تم حفظ طلبك");
+  });
+  it("keeps decorative motion hidden from assistive tech", () => {
+    const markup = render(false, "received");
+    expect(markup).toContain('class="request-confirm-badge');
+    expect(markup.match(/request-confirm-spark/g)).toHaveLength(6);
+    expect(markup).toMatch(/<span aria-hidden="true" class="request-confirm-badge/);
+  });
+  it("replays on each successful submission", () => {
+    expect(home.match(/setConfirmationKey\(\(key\) => key \+ 1\)/g)).toHaveLength(6);
+  });
+  it("does not stack a duplicate success toast over the in-form confirmation", () => {
+    for (const duplicate of ["تم استلام طلبك بنجاح، وسنتواصل معك على جوالك.", "Your request was received. We will contact you on your mobile.", "تمت إضافة الطلب مباشرة إلى حسابك.", "Your request was added directly to your account."]) {
+      expect(home).not.toContain(`toast.success("${duplicate}")`);
+    }
+    expect(home.match(/toast\.error\(/g)?.length ?? 0).toBeGreaterThanOrEqual(4);
+  });
+  it("animates only with motion allowed, with GPU-friendly properties and a fade fallback", () => {
+    const motion = css.slice(css.indexOf("/* Request received confirmation"), css.indexOf("/* Join-request decision notice"));
+    expect(motion).toContain("@media (prefers-reduced-motion: no-preference)");
+    expect(motion).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(motion).toContain("request-confirm-fade 180ms");
+    expect(motion).toContain("request-confirm-in 260ms cubic-bezier(0.23, 1, 0.32, 1)");
+    expect(motion).not.toMatch(/scale\(0\)|transition:\s*all|ease-in[^-]/);
+    expect(motion).not.toMatch(/@keyframes[^}]*\b(width|height|top|left|margin|padding)\s*:/);
   });
 });
 

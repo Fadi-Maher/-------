@@ -171,6 +171,48 @@ button:not(:disabled), [role="button"]:not([aria-disabled="true"]), [type="butto
   @keyframes profile-saved-glow { from { outline-color: #34c47c; } to { outline-color: transparent; } }
 }
 
+/* Request received confirmation: rare, celebratory feedback after submitting a request.
+   Transform/opacity only (plus the SVG check stroke). Card 260ms; the badge/ring/spark
+   delight finishes within ~700ms and never blocks interaction. Reduced motion: fade only. */
+.request-confirm-ring,
+.request-confirm-spark { opacity: 0; }
+.request-confirm-spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 9999px;
+  pointer-events: none;
+}
+.request-confirm-check { stroke-dasharray: 1; stroke-dashoffset: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .request-confirm { animation: request-confirm-in 260ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+  .request-confirm-badge { animation: request-confirm-badge 360ms 60ms cubic-bezier(0.34, 1.36, 0.64, 1) both; }
+  .request-confirm-check { animation: request-confirm-check 300ms 170ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+  .request-confirm-ring { animation: request-confirm-ring 620ms 150ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+  .request-confirm-spark { animation: request-confirm-spark 540ms 190ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+  .request-confirm-line {
+    animation: request-confirm-line 240ms cubic-bezier(0.23, 1, 0.32, 1) both;
+    animation-delay: calc(90ms + var(--line-index, 0) * 50ms);
+  }
+  @keyframes request-confirm-in { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
+  @keyframes request-confirm-badge { from { opacity: 0; transform: scale(.9) rotate(-10deg); } to { opacity: 1; transform: none; } }
+  @keyframes request-confirm-check { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+  @keyframes request-confirm-ring { from { opacity: .5; transform: scale(1); } to { opacity: 0; transform: scale(1.75); } }
+  @keyframes request-confirm-spark {
+    0% { opacity: 0; transform: translate(0, 0) scale(.6); }
+    25% { opacity: 1; }
+    100% { opacity: 0; transform: translate(var(--spark-x), var(--spark-y)) scale(1); }
+  }
+  @keyframes request-confirm-line { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  .request-confirm { animation: request-confirm-fade 180ms ease both; }
+  @keyframes request-confirm-fade { from { opacity: 0; } to { opacity: 1; } }
+}
+
 /* Join-request decision notice: short, interruptible entrance only when motion is welcome. */
 @media (prefers-reduced-motion: no-preference) {
   .decision-notice {

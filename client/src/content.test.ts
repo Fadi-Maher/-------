@@ -53,7 +53,10 @@ const refundPolicy = readFileSync(new URL("./pages/RefundAndCancellation.tsx", i
 describe("النصوص العامة لمعاملاتي", () => {
   it("يشرح عروض الأسعار والمقارنة بعد إرسال الطلب بالعربية والإنجليزية", () => {
     expect(homePage).toContain("عند توفر عروض الأسعار ستتمكن من اختيار العرض ومقارنة السعر ومدة الإنجاز.");
-    expect(homePage).toContain("When quotes are available, you can compare price and turnaround time.");
+    // The post-submit confirmation copy lives in the animated confirmation component.
+    const confirmation = readFileSync(new URL("./components/RequestReceivedConfirmation.tsx", import.meta.url), "utf8");
+    expect(confirmation).toContain("When quotes are available, you can compare price and turnaround time.");
+    expect(confirmation).toContain("عند توفر عروض الأسعار يمكنك مقارنة السعر ومدة الإنجاز.");
   });
 
   it("يستبدل زر الدعم القديم بالمساعد الذكي ثنائي اللغة مع واتساب داخل النافذة", () => {
@@ -264,7 +267,9 @@ describe("النصوص العامة لمعاملاتي", () => {
     expect(homePage).toContain("!customerSession ?");
     expect(homePage).toContain("سيُضاف الطلب مباشرة إلى طلباتك");
     expect(homePage).toContain("إضافة إلى طلباتي");
-    expect(homePage).toContain("تمت إضافة الطلب مباشرة إلى حسابك");
+    // Success is confirmed by the animated in-form card ("saved" mode) instead of a toast.
+    expect(homePage).toContain('mode={savedDirectly ? "received" : "saved"}');
+    expect(readFileSync(new URL("./components/RequestReceivedConfirmation.tsx", import.meta.url), "utf8")).toContain("حُفظ في طلباتك");
   });
 
   it("يربط حساب العميل بطلباته وردوده ويتيح تسجيل الخروج", () => {
