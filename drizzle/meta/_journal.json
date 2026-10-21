@@ -183,6 +183,13 @@
       "when": 1792523156087,
       "tag": "0025_omniscient_gwen_stacy",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "5",
+      "when": 1792625732945,
+      "tag": "0026_smart_sandman",
+      "breakpoints": true
     }
   ]
 }

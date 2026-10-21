@@ -5,7 +5,6 @@ import {
   ArrowRight,
   BadgeCheck,
   Bot,
-  Check,
   CheckCheck,
   ChevronLeft,
   ChevronRight,
@@ -20,8 +19,6 @@ import {
   RefreshCw,
   Send,
   ShieldCheck,
-  ThumbsDown,
-  ThumbsUp,
   Trash2,
   UserRound,
 } from "lucide-react";
@@ -47,6 +44,9 @@ import {
   type SupportTurn,
 } from "@shared/orderSupport";
 import { toast } from "sonner";
+import { ConversationFeedback } from "@/components/support/ConversationFeedback";
+import { SupportTypingIndicator } from "@/components/support/SupportTypingIndicator";
+import { SupportQuickReplies } from "@/components/support/SupportQuickReplies";
 
 const STORAGE = "maalamati_order_support_token_v1";
 const EMPTY_TOKEN = "0".repeat(64);
@@ -56,6 +56,7 @@ type UiMessage = {
   content: string;
   createdAt: number;
   reply?: SupportReply | null;
+  pending?: boolean;
 };
 type Payload = {
   language: "ar" | "en";
@@ -92,10 +93,12 @@ export default function OrderSupport() {
   const [input, setInput] = useState("");
   const [failed, setFailed] = useState<Payload | null>(null);
   const [dialog, setDialog] = useState<
-    "handoff" | "save" | "forget" | "new" | null
+    "handoff" | "save" | "forget" | "new" | "end" | null
   >(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
+  const [ended, setEnded] = useState(false);
+  const [feedbackId, setFeedbackId] = useState(() => crypto.randomUUID());
   const viewport = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
   const utils = trpc.useUtils();
@@ -113,15 +116,21 @@ export default function OrderSupport() {
       refetchIntervalInBackground: false,
     }
   );
-  const state = history.data?.status ?? "bot";
+  const state = ended ? "closed" : (history.data?.status ?? "bot");
   const handoffActive = state === "waiting" || state === "human";
   const start = trpc.orderSupport.start.useMutation();
   const send = trpc.orderSupport.send.useMutation();
   const handoff = trpc.orderSupport.handoff.useMutation();
   const forget = trpc.orderSupport.forget.useMutation();
-  const rate = trpc.orderSupport.rate.useMutation();
+  const finish = trpc.orderSupport.finish.useMutation();
+  const feedback = trpc.orderSupport.feedback.useMutation();
   const busy =
-    start.isPending || send.isPending || handoff.isPending || forget.isPending;
+    start.isPending ||
+    send.isPending ||
+    handoff.isPending ||
+    forget.isPending ||
+    finish.isPending ||
+    feedback.isPending;
   const blocked =
     config.isLoading ||
     config.isError ||
@@ -144,11 +153,16 @@ export default function OrderSupport() {
   useEffect(() => {
     const element = viewport.current;
     if (
+      (messages.length > 0 || send.isPending) &&
       element &&
       element.scrollHeight - element.scrollTop - element.clientHeight < 360
     )
       element.scrollTop = element.scrollHeight;
   }, [messages, send.isPending]);
+  useEffect(() => {
+    if (state === "closed" && viewport.current)
+      viewport.current.scrollTop = viewport.current.scrollHeight;
+  }, [state]);
   const lastReply = [...messages]
     .reverse()
     .find(m => m.sender === "bot" && m.reply)?.reply;
@@ -158,6 +172,27 @@ export default function OrderSupport() {
       role: m.sender === "user" ? ("user" as const) : ("assistant" as const),
       content: m.content,
     }));
+  async function submitFeedback(stars: number, comment: string) {
+    const result = await feedback.mutateAsync({
+      id: feedbackId,
+      token: token ?? undefined,
+      language: lang,
+      stars,
+      comment,
+      consent: true,
+      finished: true,
+    });
+    if (token) void utils.orderSupport.history.invalidate({ token });
+    return result.stars;
+  }
+  function resetConversation() {
+    setMessages([]);
+    setInput("");
+    setSelected(null);
+    setFailed(null);
+    setEnded(false);
+    setFeedbackId(crypto.randomUUID());
+  }
   async function saveConversation() {
     const result = await start.mutateAsync({
       language: lang,
@@ -182,6 +217,7 @@ export default function OrderSupport() {
     const optimistic: UiMessage = {
       id: payload.turnId,
       sender: "user",
+      pending: true,
       content: redactSupportText(payload.turns.at(-1)!.content),
       createdAt: Date.now(),
     };
@@ -192,6 +228,11 @@ export default function OrderSupport() {
     );
     try {
       const result = await send.mutateAsync(payload);
+      setMessages(current =>
+        current.map(m =>
+          m.id === payload.turnId ? { ...m, pending: false } : m
+        )
+      );
       if (result.reply)
         setMessages(current => [
           ...current,
@@ -235,7 +276,13 @@ export default function OrderSupport() {
   }
   async function confirmDialog() {
     try {
-      if (dialog === "save") {
+      if (dialog === "end") {
+        if (token) await finish.mutateAsync({ token });
+        setEnded(true);
+        setFailed(null);
+        setInput("");
+        if (token) void utils.orderSupport.history.invalidate({ token });
+      } else if (dialog === "save") {
         await saveConversation();
         toast.success(
           t("تم تفعيل الحفظ الاختياري.", "Optional saving enabled.")
@@ -257,12 +304,7 @@ export default function OrderSupport() {
         } catch {}
         setToken(null);
         setRestored(false);
-        if (dialog === "new") {
-          setMessages([]);
-          setInput("");
-          setSelected(null);
-          setFailed(null);
-        }
+        if (dialog === "new") resetConversation();
         toast.success(
           t(
             "حُذف السجل المحفوظ وأُزيل مفتاح الاستعادة.",
@@ -475,18 +517,28 @@ export default function OrderSupport() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                {messages.length > 0 && state !== "closed" ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy || Boolean(token && history.isError)}
+                    onClick={() => setDialog("end")}
+                    className="h-10 rounded-xl px-2 text-xs text-primary"
+                  >
+                    {t("إنهاء", "End chat")}
+                    <span className="sr-only">
+                      {t("المحادثة", "conversation")}
+                    </span>
+                  </Button>
+                ) : null}
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() =>
-                    token
-                      ? setDialog("new")
-                      : (setMessages([]),
-                        setSelected(null),
-                        setInput(""),
-                        setFailed(null))
+                    token ? setDialog("new") : resetConversation()
                   }
                   disabled={busy}
                   className="h-10 gap-1.5 rounded-xl text-muted-foreground"
@@ -518,7 +570,11 @@ export default function OrderSupport() {
                 variant="ghost"
                 size="sm"
                 type="button"
-                disabled={busy || Boolean(token && history.isLoading)}
+                disabled={
+                  busy ||
+                  Boolean(token && history.isLoading) ||
+                  state === "closed"
+                }
                 onClick={() =>
                   token ? setDialog("forget") : setDialog("save")
                 }
@@ -680,7 +736,17 @@ export default function OrderSupport() {
                                 { hour: "2-digit", minute: "2-digit" }
                               )}
                               {m.sender === "user" ? (
-                                <CheckCheck className="h-3 w-3" />
+                                m.pending ? (
+                                  <Clock3
+                                    className="h-3 w-3"
+                                    aria-label={t("قيد الإرسال", "Sending")}
+                                  />
+                                ) : (
+                                  <CheckCheck
+                                    className="h-3 w-3"
+                                    aria-label={t("أُرسلت", "Sent")}
+                                  />
+                                )
                               ) : null}
                             </p>
                           </div>
@@ -707,20 +773,25 @@ export default function OrderSupport() {
                   </>
                 )}
                 {send.isPending ? (
-                  <div
-                    role="status"
-                    className="flex items-center gap-2 text-xs text-muted-foreground"
-                  >
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    {t(
-                      handoffActive
-                        ? "جارٍ إرسال الرسالة…"
-                        : "جارٍ تجهيز الخطوة التالية…",
-                      handoffActive
-                        ? "Sending your message…"
-                        : "Preparing your next step…"
-                    )}
-                  </div>
+                  handoffActive ? (
+                    <div
+                      role="status"
+                      className="flex items-center gap-2 text-xs text-muted-foreground"
+                    >
+                      <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+                      {t("جارٍ إرسال الرسالة…", "Sending your message…")}
+                    </div>
+                  ) : (
+                    <SupportTypingIndicator isEnglish={en} />
+                  )
+                ) : null}
+                {state === "closed" && !history.isError ? (
+                  <ConversationFeedback
+                    key={token ?? feedbackId}
+                    isEnglish={en}
+                    savedStars={history.data?.feedback?.stars}
+                    onSubmit={submitFeedback}
+                  />
                 ) : null}
               </div>
             )}
@@ -797,6 +868,13 @@ export default function OrderSupport() {
                 )}
               </div>
             ) : null}
+            {!handoffActive && state !== "closed" ? (
+              <SupportQuickReplies
+                isEnglish={en}
+                disabled={busy || blocked}
+                onSelect={sendMessage}
+              />
+            ) : null}
             {state === "closed" ? (
               <div className="border-t border-border p-4 text-center">
                 <p className="mb-2 text-xs text-muted-foreground">
@@ -805,7 +883,12 @@ export default function OrderSupport() {
                     "This chat is closed. Need more help?"
                   )}
                 </p>
-                <Button onClick={() => setDialog("new")} size="sm">
+                <Button
+                  onClick={() =>
+                    token ? setDialog("new") : resetConversation()
+                  }
+                  size="sm"
+                >
                   {t("بدء محادثة جديدة", "Start a new chat")}
                 </Button>
               </div>
@@ -885,62 +968,12 @@ export default function OrderSupport() {
                 <Headset className="h-4 w-4" />
                 {t("طلب موظف", "Request a human")}
               </button>
-              {token && messages.length > 0 ? (
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                  <span>
-                    {history.data?.rating
-                      ? t("شكرًا لتقييمك", "Thanks for your feedback")
-                      : t("هل كانت المساعدة مفيدة؟", "Was this helpful?")}
-                  </span>
-                  {!history.data?.rating ? (
-                    <>
-                      <button
-                        aria-label={t("مفيدة", "Helpful")}
-                        disabled={rate.isPending}
-                        className="grid h-8 w-8 place-items-center rounded-lg hover:bg-secondary"
-                        onClick={() =>
-                          rate.mutate(
-                            { token, rating: "helpful" },
-                            {
-                              onSuccess: () =>
-                                void utils.orderSupport.history.invalidate(),
-                              onError: e => toast.error(e.message),
-                            }
-                          )
-                        }
-                      >
-                        <ThumbsUp className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        aria-label={t("غير مفيدة", "Not helpful")}
-                        disabled={rate.isPending}
-                        className="grid h-8 w-8 place-items-center rounded-lg hover:bg-secondary"
-                        onClick={() =>
-                          rate.mutate(
-                            { token, rating: "unhelpful" },
-                            {
-                              onSuccess: () =>
-                                void utils.orderSupport.history.invalidate(),
-                              onError: e => toast.error(e.message),
-                            }
-                          )
-                        }
-                      >
-                        <ThumbsDown className="h-3.5 w-3.5" />
-                      </button>
-                    </>
-                  ) : (
-                    <Check className="h-3.5 w-3.5 text-primary" />
-                  )}
-                </div>
-              ) : (
-                <span className="text-[10px] text-muted-foreground">
-                  {t(
-                    "إرشاد عام، دون الوصول إلى بيانات طلبك",
-                    "General guidance, without accessing your request"
-                  )}
-                </span>
-              )}
+              <span className="text-[10px] text-muted-foreground">
+                {t(
+                  "إرشاد عام، دون الوصول إلى بيانات طلبك",
+                  "General guidance, without accessing your request"
+                )}
+              </span>
             </div>
           </section>
         </div>
@@ -954,37 +987,46 @@ export default function OrderSupport() {
         <DialogContent dir={en ? "ltr" : "rtl"} className="rounded-3xl">
           <DialogHeader>
             <div className="mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-secondary text-primary">
-              {dialog === "handoff" || dialog === "save" ? (
+              {dialog === "end" ? (
+                <CheckCheck className="h-5 w-5" />
+              ) : dialog === "handoff" || dialog === "save" ? (
                 <Headset className="h-6 w-6" />
               ) : (
                 <Trash2 className="h-5 w-5" />
               )}
             </div>
             <DialogTitle>
-              {dialog === "save"
-                ? t("تفعيل حفظ المحادثة؟", "Enable conversation saving?")
-                : dialog === "handoff"
-                  ? t(
-                      "إرسال المحادثة إلى فريق الدعم؟",
-                      "Send this chat to support?"
-                    )
-                  : t("حذف السجل المحفوظ؟", "Delete saved history?")}
+              {dialog === "end"
+                ? t("إنهاء المحادثة وتقييمها؟", "End and rate this chat?")
+                : dialog === "save"
+                  ? t("تفعيل حفظ المحادثة؟", "Enable conversation saving?")
+                  : dialog === "handoff"
+                    ? t(
+                        "إرسال المحادثة إلى فريق الدعم؟",
+                        "Send this chat to support?"
+                      )
+                    : t("حذف السجل المحفوظ؟", "Delete saved history?")}
             </DialogTitle>
             <DialogDescription className="pt-3 text-sm leading-7">
-              {dialog === "save"
+              {dialog === "end"
                 ? t(
-                    "بموافقتك تُحفظ رسائل هذه المحادثة المحجوبة على الخادم. يُحفظ مفتاح استعادتها في هذا المتصفح؛ يمكن لمن يستخدمه الوصول للمحادثة لمدة 30 يومًا. لا تُربط المحادثة تلقائيًا بحسابك أو رقمك. يمكنك إيقاف الحفظ وحذف السجل في أي وقت.",
-                    "With your permission, redacted messages are saved on the server. A restore key is kept in this browser; anyone using it can access the conversation for 30 days. The chat is not linked automatically to your account or mobile number. You can stop saving and delete history at any time."
+                    "ستنتهي محادثة الدعم الحالية، ويمكنك تقييم التجربة بالنجوم وترك ملاحظة اختيارية. هذا لا يلغي طلبك ولا يغيّر بياناته. إذا كنت تنتظر ردًا بشريًا، فستنتهي متابعة هذه المحادثة أيضًا.",
+                    "This support chat will close, and you may rate it with stars and leave optional feedback. This does not cancel or change your request. If you are waiting for a human reply, follow-up in this conversation will also end."
                   )
-                : dialog === "handoff"
+                : dialog === "save"
                   ? t(
-                      "بالتأكيد توافق على حفظ رسائل هذه المحادثة وإرسالها إلى المالك لمراجعتها والرد هنا. نحجب أنماط البيانات الحساسة، لكن لا ترسل معلومات خاصة. مفتاح الاستعادة محفوظ في هذا المتصفح ويتيح لمن يستخدمه رؤية المحادثة لمدة 30 يومًا. لا يوجد موعد رد مضمون.",
-                      "Confirming saves this conversation and sends its messages to the owner for review and a reply here. Sensitive patterns are redacted, but do not share private information. A restore key in this browser allows its users to see this conversation for 30 days. Response time is not guaranteed."
+                      "بموافقتك تُحفظ رسائل هذه المحادثة المحجوبة على الخادم. يُحفظ مفتاح استعادتها في هذا المتصفح؛ يمكن لمن يستخدمه الوصول للمحادثة لمدة 30 يومًا. لا تُربط المحادثة تلقائيًا بحسابك أو رقمك. يمكنك إيقاف الحفظ وحذف السجل في أي وقت.",
+                      "With your permission, redacted messages are saved on the server. A restore key is kept in this browser; anyone using it can access the conversation for 30 days. The chat is not linked automatically to your account or mobile number. You can stop saving and delete history at any time."
                     )
-                  : t(
-                      "سيُحذف سجل هذه المحادثة من الخادم ويُزال مفتاح الاستعادة من المتصفح. لا يمكن استعادته بعد الحذف. يمكنك بعدها المتابعة دون حفظ أو بدء محادثة جديدة.",
-                      "This chat's history will be deleted from the server and its restore key removed from the browser. It cannot be restored afterwards. You can then continue without saving or start a new chat."
-                    )}
+                  : dialog === "handoff"
+                    ? t(
+                        "بالتأكيد توافق على حفظ رسائل هذه المحادثة وإرسالها إلى المالك لمراجعتها والرد هنا. نحجب أنماط البيانات الحساسة، لكن لا ترسل معلومات خاصة. مفتاح الاستعادة محفوظ في هذا المتصفح ويتيح لمن يستخدمه رؤية المحادثة لمدة 30 يومًا. لا يوجد موعد رد مضمون.",
+                        "Confirming saves this conversation and sends its messages to the owner for review and a reply here. Sensitive patterns are redacted, but do not share private information. A restore key in this browser allows its users to see this conversation for 30 days. Response time is not guaranteed."
+                      )
+                    : t(
+                        "سيُحذف سجل هذه المحادثة من الخادم ويُزال مفتاح الاستعادة من المتصفح. لا يمكن استعادته بعد الحذف. يمكنك بعدها المتابعة دون حفظ أو بدء محادثة جديدة.",
+                        "This chat's history will be deleted from the server and its restore key removed from the browser. It cannot be restored afterwards. You can then continue without saving or start a new chat."
+                      )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-3 gap-2">
@@ -997,11 +1039,13 @@ export default function OrderSupport() {
             </Button>
             <Button onClick={() => void confirmDialog()} disabled={busy}>
               {busy ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : null}
-              {dialog === "save"
-                ? t("أوافق على الحفظ", "I agree to save")
-                : dialog === "handoff"
-                  ? t("أوافق، أرسل إلى الدعم", "I agree, send to support")
-                  : t("حذف السجل والمتابعة", "Delete history and continue")}
+              {dialog === "end"
+                ? t("إنهاء وتقييم المحادثة", "End and rate conversation")
+                : dialog === "save"
+                  ? t("أوافق على الحفظ", "I agree to save")
+                  : dialog === "handoff"
+                    ? t("أوافق، أرسل إلى الدعم", "I agree, send to support")
+                    : t("حذف السجل والمتابعة", "Delete history and continue")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -211,3 +211,16 @@ button:not(:disabled), [role="button"]:not([aria-disabled="true"]), [type="butto
   .lb-panel-in { animation-name: lb-panel-in-mobile; }
   @keyframes lb-panel-in-mobile { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
 }
+
+/* Request-support typing: a loading cycle, not an artificial response delay. */
+.support-typing-dot { opacity: .65; }
+@media (prefers-reduced-motion: no-preference) {
+  .support-typing-dot { animation: support-typing-dot 1.1s cubic-bezier(.45, 0, .55, 1) infinite; }
+  @keyframes support-typing-dot {
+    0%, 65%, 100% { opacity: .45; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-2px); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .support-typing-dot { animation: none; transform: none; opacity: .8; }
+}

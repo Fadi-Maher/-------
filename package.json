@@ -11,7 +11,8 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:production": "tsx scripts/production-smoke.ts",
-    "db:push": "drizzle-kit generate && drizzle-kit migrate"
+    "db:push": "drizzle-kit generate && drizzle-kit migrate",
+    "db:support-feedback": "tsx scripts/migrate-support-feedback.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",

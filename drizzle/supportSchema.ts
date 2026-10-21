@@ -87,3 +87,26 @@ export const supportRateLimits = mysqlTable("order_support_rate_limits", {
   windowStartedAt: bigint("windowStartedAt", { mode: "number" }).notNull(),
   requestCount: int("requestCount").notNull(),
 });
+
+// Ratings are separate from transcript consent; visitors may rate without saving a chat.
+export const supportFeedback = mysqlTable(
+  "order_support_feedback",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    sessionId: varchar("sessionId", { length: 36 }).references(
+      () => supportSessions.id,
+      { onDelete: "cascade" }
+    ),
+    stars: int("stars").notNull(),
+    comment: text("comment"),
+    language: mysqlEnum("language", ["ar", "en"]).notNull(),
+    consentVersion: varchar("consentVersion", { length: 20 }).notNull(),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  t => ({
+    onePerSession: uniqueIndex("order_support_feedback_one_session").on(
+      t.sessionId
+    ),
+    created: index("order_support_feedback_created").on(t.createdAt),
+  })
+);

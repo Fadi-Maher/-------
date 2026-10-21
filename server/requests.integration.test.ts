@@ -97,12 +97,13 @@ describe("التكامل الحقيقي لطلب معاملة", () => {
     });
     expect(attachment.attachment.url).toContain("/manus-storage/");
 
-    const tracking = await caller.requests.track({ reference: created.reference });
+    await expect(caller.requests.track({ reference: created.reference })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    const tracking = await admin.requests.track({ reference: created.reference });
     expect(tracking).toMatchObject({ reference: created.reference, status: "in_review" });
     expect(tracking?.updates.map((update) => update.message)).toContain("تمت مراجعة الطلب وسيبدأ التنفيذ قريبًا.");
     expect(tracking?.updates.flatMap((entry) => entry.attachments).map((item) => item.fileName)).toContain("integration-verification.pdf");
 
-    const missing = await caller.requests.track({ reference: "SE-NOT-FOUND" });
+    const missing = await admin.requests.track({ reference: "SE-NOT-FOUND" });
     expect(missing).toBeNull();
   }, 15_000);
 

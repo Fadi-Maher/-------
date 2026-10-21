@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { adminProcedure, publicProcedure, router } from "./_core/trpc";
 import * as db from "./orderSupportDb";
+import { supportFeedbackInput } from "../shared/supportFeedback";
 
 const token = z.string().regex(/^[a-f0-9]{64}$/);
 const sessionInput = z.object({ token });
@@ -58,6 +59,12 @@ export const orderSupportRouter = router({
   rate: limited
     .input(sessionInput.extend({ rating: z.enum(["helpful", "unhelpful"]) }))
     .mutation(({ input }) => db.rateSupport(input.token, input.rating)),
+  finish: limited
+    .input(sessionInput)
+    .mutation(({ input }) => db.finishSupport(input.token)),
+  feedback: limited
+    .input(supportFeedbackInput)
+    .mutation(({ input }) => db.submitSupportFeedback(input)),
   admin: router({
     list: adminProcedure
       .input(

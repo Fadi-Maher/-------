@@ -1,9 +1,10 @@
 import { TRPCError } from "@trpc/server";
-import { and, asc, count, desc, eq, gt, sql } from "drizzle-orm";
+import { and, asc, avg, count, desc, eq, gt, sql } from "drizzle-orm";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
   supportConfig,
   supportEvents,
+  supportFeedback,
   supportMessages,
   supportRateLimits,
   supportSessions,
@@ -15,6 +16,10 @@ import {
   type SupportTurn,
 } from "../shared/orderSupport";
 import { getDb, listAssistantFaqs } from "./db";
+import {
+  supportFeedbackInput,
+  type SupportFeedbackInput,
+} from "../shared/supportFeedback";
 
 const TTL = 30 * 24 * 60 * 60 * 1000;
 const hash = (value: string) =>
@@ -95,32 +100,26 @@ export async function startSupport(
   const id = randomUUID();
   const now = Date.now();
   await db.transaction(async tx => {
-    await tx
-      .insert(supportSessions)
-      .values({
-        id,
-        tokenHash: hash(token),
-        language,
-        consentVersion: "2026-10-20",
-        createdAt: now,
-        updatedAt: now,
-      });
+    await tx.insert(supportSessions).values({
+      id,
+      tokenHash: hash(token),
+      language,
+      consentVersion: "2026-10-20",
+      createdAt: now,
+      updatedAt: now,
+    });
     if (turns.length)
-      await tx
-        .insert(supportMessages)
-        .values(
-          turns
-            .slice(-20)
-            .map((t, i) => ({
-              id: randomUUID(),
-              sessionId: id,
-              turnId: randomUUID(),
-              sender: t.role === "user" ? ("user" as const) : ("bot" as const),
-              content: redactSupportText(t.content),
-              createdAt: now + i,
-              metadata: null,
-            }))
-        );
+      await tx.insert(supportMessages).values(
+        turns.slice(-20).map((t, i) => ({
+          id: randomUUID(),
+          sessionId: id,
+          turnId: randomUUID(),
+          sender: t.role === "user" ? ("user" as const) : ("bot" as const),
+          content: redactSupportText(t.content),
+          createdAt: now + i,
+          metadata: null,
+        }))
+      );
   });
   return { token };
 }
@@ -147,11 +146,17 @@ export async function readSupport(token: string) {
     .where(eq(supportMessages.sessionId, session.id))
     .orderBy(asc(supportMessages.createdAt))
     .limit(300);
+  const [feedback] = await db
+    .select({ stars: supportFeedback.stars })
+    .from(supportFeedback)
+    .where(eq(supportFeedback.sessionId, session.id))
+    .limit(1);
   return {
     id: session.id,
     status: session.status,
     language: session.language,
     rating: session.rating,
+    feedback: feedback ?? null,
     messages,
   };
 }
@@ -250,28 +255,24 @@ export async function sendSupport(input: {
     const reply =
       session.status === "bot" ? await answer(input.language, turns) : null;
     const now = Date.now();
-    await tx
-      .insert(supportMessages)
-      .values({
+    await tx.insert(supportMessages).values({
+      id: randomUUID(),
+      sessionId: session.id,
+      turnId: input.turnId,
+      sender: "user",
+      content,
+      createdAt: now,
+    });
+    if (reply) {
+      await tx.insert(supportMessages).values({
         id: randomUUID(),
         sessionId: session.id,
         turnId: input.turnId,
-        sender: "user",
-        content,
-        createdAt: now,
+        sender: "bot",
+        content: reply.text,
+        metadata: JSON.stringify(reply),
+        createdAt: now + 1,
       });
-    if (reply) {
-      await tx
-        .insert(supportMessages)
-        .values({
-          id: randomUUID(),
-          sessionId: session.id,
-          turnId: input.turnId,
-          sender: "bot",
-          content: reply.text,
-          metadata: JSON.stringify(reply),
-          createdAt: now + 1,
-        });
       await tx
         .insert(supportEvents)
         .values({ kind: "answer", intent: reply.intent, createdAt: now });
@@ -316,19 +317,17 @@ export async function handoffSupport(token: string) {
       .update(supportSessions)
       .set({ status: "waiting", updatedAt: now })
       .where(eq(supportSessions.id, session.id));
-    await tx
-      .insert(supportMessages)
-      .values({
-        id: randomUUID(),
-        sessionId: session.id,
-        turnId: randomUUID(),
-        sender: "system",
-        createdAt: now,
-        content:
-          session.language === "en"
-            ? "Your conversation was sent to support for review. Leave this page open or return from this browser for a reply. No response time is guaranteed."
-            : "أُرسلت محادثتك إلى فريق الدعم للمراجعة. أبقِ الصفحة مفتوحة أو عُد من هذا المتصفح للاطلاع على الرد. لا يوجد موعد رد مضمون.",
-      });
+    await tx.insert(supportMessages).values({
+      id: randomUUID(),
+      sessionId: session.id,
+      turnId: randomUUID(),
+      sender: "system",
+      createdAt: now,
+      content:
+        session.language === "en"
+          ? "Your conversation was sent to support for review. Leave this page open or return from this browser for a reply. No response time is guaranteed."
+          : "أُرسلت محادثتك إلى فريق الدعم للمراجعة. أبقِ الصفحة مفتوحة أو عُد من هذا المتصفح للاطلاع على الرد. لا يوجد موعد رد مضمون.",
+    });
     await tx
       .insert(supportEvents)
       .values({ kind: "handoff", intent: session.intent, createdAt: now });
@@ -415,8 +414,14 @@ export async function supportDetail(id: string) {
     .limit(1);
   if (!session)
     throw new TRPCError({ code: "NOT_FOUND", message: "المحادثة غير موجودة." });
+  const [feedback] = await db
+    .select({ stars: supportFeedback.stars, comment: supportFeedback.comment })
+    .from(supportFeedback)
+    .where(eq(supportFeedback.sessionId, id))
+    .limit(1);
   return {
     ...session,
+    feedback: feedback ?? null,
     messages: await db
       .select()
       .from(supportMessages)
@@ -463,16 +468,14 @@ export async function replySupport(
       )
       .limit(1);
     if (existing.length) return;
-    await tx
-      .insert(supportMessages)
-      .values({
-        id: randomUUID(),
-        sessionId: id,
-        turnId,
-        sender: "human",
-        content: redactSupportText(content),
-        createdAt: Date.now(),
-      });
+    await tx.insert(supportMessages).values({
+      id: randomUUID(),
+      sessionId: id,
+      turnId,
+      sender: "human",
+      content: redactSupportText(content),
+      createdAt: Date.now(),
+    });
     await tx
       .update(supportSessions)
       .set({ status: "human", updatedAt: Date.now() })
@@ -480,7 +483,10 @@ export async function replySupport(
   });
   return { success: true };
 }
-export async function closeSupport(id: string) {
+export async function closeSupport(
+  id: string,
+  actor: "owner" | "customer" = "owner"
+) {
   const db = await database();
   await db.transaction(async tx => {
     const [s] = await tx
@@ -500,19 +506,21 @@ export async function closeSupport(id: string) {
       .update(supportSessions)
       .set({ status: "closed", updatedAt: now })
       .where(eq(supportSessions.id, id));
-    await tx
-      .insert(supportMessages)
-      .values({
-        id: randomUUID(),
-        sessionId: id,
-        turnId: randomUUID(),
-        sender: "system",
-        content:
-          s.language === "en"
+    await tx.insert(supportMessages).values({
+      id: randomUUID(),
+      sessionId: id,
+      turnId: randomUUID(),
+      sender: "system",
+      content:
+        actor === "customer"
+          ? s.language === "en"
+            ? "You ended this conversation. This does not cancel or change your request. You may now rate your support experience."
+            : "أنهيت هذه المحادثة. هذا لا يلغي طلبك ولا يغيره. يمكنك الآن تقييم تجربة الدعم."
+          : s.language === "en"
             ? "Support closed this conversation. You can start a new chat if you need more help."
             : "أغلق فريق الدعم هذه المحادثة. يمكنك بدء محادثة جديدة إذا احتجت مساعدة أخرى.",
-        createdAt: now,
-      });
+      createdAt: now,
+    });
   });
   return { success: true };
 }
@@ -533,5 +541,120 @@ export async function supportAnalytics() {
     .from(supportSessions)
     .where(gt(supportSessions.createdAt, since))
     .groupBy(supportSessions.status);
-  return { events, statuses, since };
+  const [feedbackSummary] = await db
+    .select({ total: count(), average: avg(supportFeedback.stars) })
+    .from(supportFeedback)
+    .where(gt(supportFeedback.createdAt, since));
+  const feedbackDistribution = await db
+    .select({ stars: supportFeedback.stars, total: count() })
+    .from(supportFeedback)
+    .where(gt(supportFeedback.createdAt, since))
+    .groupBy(supportFeedback.stars);
+  const feedbackComments = await db
+    .select({
+      id: supportFeedback.id,
+      stars: supportFeedback.stars,
+      comment: supportFeedback.comment,
+      createdAt: supportFeedback.createdAt,
+    })
+    .from(supportFeedback)
+    .where(
+      and(
+        gt(supportFeedback.createdAt, since),
+        sql`${supportFeedback.comment} IS NOT NULL AND ${supportFeedback.comment} <> ''`
+      )
+    )
+    .orderBy(desc(supportFeedback.createdAt))
+    .limit(20);
+  return {
+    events,
+    statuses,
+    since,
+    feedbackSummary: {
+      total: Number(feedbackSummary?.total ?? 0),
+      average:
+        feedbackSummary?.average == null
+          ? null
+          : Number(feedbackSummary.average),
+    },
+    feedbackDistribution,
+    feedbackComments,
+  };
+}
+
+export async function finishSupport(token: string) {
+  const session = await readSupport(token);
+  await closeSupport(session.id, "customer");
+  return { status: "closed" as const };
+}
+export async function submitSupportFeedback(raw: SupportFeedbackInput) {
+  const input = supportFeedbackInput.parse(raw);
+  const db = await database();
+  return db.transaction(async tx => {
+    let sessionId: string | null = null;
+    if (input.token) {
+      const [session] = await tx
+        .select()
+        .from(supportSessions)
+        .where(
+          and(
+            eq(supportSessions.tokenHash, hash(input.token)),
+            gt(supportSessions.createdAt, Date.now() - TTL)
+          )
+        )
+        .limit(1)
+        .for("update");
+      if (!session)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "انتهت جلسة الدعم أو حُذفت.",
+        });
+      if (session.status !== "closed")
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "أنهِ المحادثة قبل إرسال تقييمها.",
+        });
+      sessionId = session.id;
+      const [existing] = await tx
+        .select({ stars: supportFeedback.stars })
+        .from(supportFeedback)
+        .where(eq(supportFeedback.sessionId, sessionId))
+        .limit(1);
+      if (existing) return { success: true, stars: existing.stars };
+    }
+    const [duplicate] = await tx
+      .select({
+        stars: supportFeedback.stars,
+        sessionId: supportFeedback.sessionId,
+      })
+      .from(supportFeedback)
+      .where(eq(supportFeedback.id, input.id))
+      .limit(1);
+    if (duplicate) {
+      if (duplicate.sessionId !== sessionId)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "استخدم معرّفًا جديدًا للتقييم.",
+        });
+      return { success: true, stars: duplicate.stars };
+    }
+    await tx
+      .insert(supportFeedback)
+      .values({
+        id: input.id,
+        sessionId,
+        stars: input.stars,
+        comment: redactSupportText(input.comment).slice(0, 500) || null,
+        language: input.language,
+        consentVersion: "2026-10-22",
+        createdAt: Date.now(),
+      })
+      .onDuplicateKeyUpdate({ set: { id: sql`${supportFeedback.id}` } });
+    const [saved] = await tx
+      .select({ stars: supportFeedback.stars })
+      .from(supportFeedback)
+      .where(eq(supportFeedback.id, input.id))
+      .limit(1);
+    return { success: true, stars: saved?.stars ?? input.stars };
+  });
 }

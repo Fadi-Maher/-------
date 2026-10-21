@@ -10,6 +10,7 @@ import {
   Send,
   Settings2,
   ShieldCheck,
+  Star,
   ThumbsUp,
   Users,
 } from "lucide-react";
@@ -115,6 +116,8 @@ function Inbox() {
       .reduce((sum, e) => sum + Number(e.total), 0);
   const answers = total("answer");
   const feedback = total("helpful") + total("unhelpful");
+  const starCount = analytics.data?.feedbackSummary.total ?? 0;
+  const starAverage = analytics.data?.feedbackSummary.average;
   const waiting = Number(
     analytics.data?.statuses.find(s => s.status === "waiting")?.total ?? 0
   );
@@ -396,7 +399,7 @@ function Inbox() {
             <>
               <div className="mb-4 flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
-                  آخر 30 يومًا · أحداث فعلية دون نصوص أو أرقام جوال
+                  آخر 30 يومًا · أحداث فعلية وتقييمات بموافقة المستخدم
                 </p>
                 <Button
                   size="sm"
@@ -448,6 +451,98 @@ function Inbox() {
                   </article>
                 ))}
               </div>
+              <article className="mt-5 rounded-3xl border border-border bg-white p-6">
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="flex items-center gap-2 font-display text-lg font-bold">
+                      <Star className="h-5 w-5 text-primary" />
+                      تقييم تجربة الدعم
+                    </h2>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      نجوم تُرسل بعد انتهاء المحادثة؛ لا تُحوّل التقييمات
+                      القديمة إلى نجوم افتراضية.
+                    </p>
+                  </div>
+                  <div className="text-end">
+                    <span className="text-3xl font-extrabold">
+                      {starAverage == null ? "—" : starAverage.toFixed(1)}
+                    </span>
+                    <span className="ms-1 text-sm text-muted-foreground">
+                      /5
+                    </span>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      من {starCount} تقييم
+                    </p>
+                  </div>
+                </div>
+                {starCount === 0 ? (
+                  <Empty
+                    title="لا توجد تقييمات بالنجوم بعد"
+                    text="تظهر هنا التقييمات التي يرسلها المستخدمون اختيارياً بعد إنهاء المحادثة. لا نعرض متوسطًا افتراضيًا."
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    {[5, 4, 3, 2, 1].map(stars => {
+                      const total = Number(
+                        analytics.data?.feedbackDistribution.find(
+                          r => r.stars === stars
+                        )?.total ?? 0
+                      );
+                      return (
+                        <div key={stars} className="flex items-center gap-3">
+                          <span className="flex w-10 items-center gap-1 text-xs font-bold">
+                            {stars}
+                            <Star className="h-3 w-3 text-primary" />
+                          </span>
+                          <div className="h-2 flex-1 overflow-hidden rounded-full bg-secondary">
+                            <div
+                              className="h-full rounded-full bg-primary"
+                              style={{ width: `${(total / starCount) * 100}%` }}
+                            />
+                          </div>
+                          <span className="w-7 text-end text-xs text-muted-foreground">
+                            {total}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <h3 className="mb-3 mt-6 text-sm font-bold">
+                  ملاحظات المستخدمين الأخيرة
+                </h3>
+                {!analytics.data?.feedbackComments.length ? (
+                  <p className="text-xs leading-6 text-muted-foreground">
+                    لا توجد ملاحظات نصية بعد؛ إرسال الملاحظة اختياري.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {analytics.data.feedbackComments.map(item => (
+                      <div
+                        key={item.id}
+                        className="rounded-xl border border-border bg-background/45 p-4"
+                      >
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="flex items-center gap-1 text-xs font-bold text-primary">
+                            <Star className="h-3 w-3" />
+                            {item.stars}/5
+                          </span>
+                          <time className="text-[10px] text-muted-foreground">
+                            {new Date(item.createdAt).toLocaleDateString("ar")}
+                          </time>
+                        </div>
+                        <p className="whitespace-pre-wrap break-words text-xs leading-7">
+                          {item.comment}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-4 text-[10px] leading-6 text-muted-foreground">
+                  آخر 20 ملاحظة منقّحة ضمن 30 يومًا. النصوص بيانات غير موثوقة
+                  للعرض فقط، ولا تظهر إلا للمالك.
+                </p>
+              </article>
               <article className="mt-5 rounded-3xl border border-border bg-white p-6">
                 <h2 className="mb-5 font-display text-lg font-bold">
                   الموضوعات الأكثر استخدامًا
