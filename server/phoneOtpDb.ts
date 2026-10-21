@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { phoneOtpChallenges } from "../drizzle/schema";
 import { getDb } from "./db";
 import { ENV } from "./_core/env";
+import { assertDemoPhoneVerificationAllowed } from "./phoneVerificationPolicy";
 import {
   issueCustomerPhoneAccess,
   issuePhoneLoginTicket,
@@ -50,6 +51,7 @@ export async function requestPhoneCode(
   now = Date.now(),
   resendChallengeId?: string
 ) {
+  assertDemoPhoneVerificationAllowed(language);
   const db = await getDb();
   if (!db)
     throw new TRPCError({
@@ -171,6 +173,7 @@ export async function resendPhoneCode(
   language: Language = "ar",
   now = Date.now()
 ) {
+  assertDemoPhoneVerificationAllowed(language);
   const db = await getDb();
   if (!db)
     throw new TRPCError({
@@ -206,6 +209,7 @@ export async function verifyPhoneCode(
   now = Date.now()
 ) {
   const language = input.language ?? "ar";
+  assertDemoPhoneVerificationAllowed(language);
   const db = await getDb();
   if (!db)
     throw new TRPCError({

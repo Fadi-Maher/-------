@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { CustomerNotificationCenter } from "@/components/CustomerNotificationCenter";
+import { PhoneVerificationUnavailable } from "@/components/PhoneVerificationUnavailable";
 import { CustomerQuotePanel, type CustomerQuote, type CustomerQuoteGroup } from "@/components/CustomerQuotePanel";
 import { RequestConversation } from "@/components/RequestConversation";
 import { RequestReviewPanel } from "@/components/RequestReviewPanel";
@@ -48,6 +49,13 @@ function normalizeSaudiPhone(value: string) {
 }
 
 export default function TrackRequest() {
+  if (import.meta.env.PROD) {
+    return <main className="mx-auto max-w-xl px-4 py-12"><LanguageToggle /><PhoneVerificationUnavailable /></main>;
+  }
+  return <TrackRequestContent />;
+}
+
+function TrackRequestContent() {
   const { isEnglish } = useLanguage();
   const isDemoMode = new URLSearchParams(window.location.search).get("demo") === "1";
   const [step, setStep] = useState<"phone" | "verify" | "results">("phone");

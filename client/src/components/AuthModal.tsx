@@ -26,6 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { PhoneVerificationUnavailable } from "@/components/PhoneVerificationUnavailable";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/BrandMark";
 import { normalizeSaudiPhone } from "@/components/CustomerAuthForm";
@@ -715,6 +716,7 @@ export function AuthModal() {
               : "أدخل رقم الجوال وتحقق من الرمز. الحساب المسجل يُفتح مباشرة، والرقم الجديد يختار عميلًا أو معقبًا. يرسل المعقب الجديد طلبًا لموافقة الإدارة."}
           </DialogDescription>
         </DialogHeader>
+        {import.meta.env.PROD ? <PhoneVerificationUnavailable /> : <>
         <ol
           aria-label={isEnglish ? "Account access steps" : "خطوات الدخول"}
           className="grid grid-cols-4 gap-1 rounded-2xl border border-[#e3eef9] bg-[#f5f9fd] p-1.5 sm:gap-1.5 sm:p-2"
@@ -1015,6 +1017,7 @@ export function AuthModal() {
             />
           </div>
         ) : null}
+        </>}
       </DialogContent>
     </Dialog>
   );

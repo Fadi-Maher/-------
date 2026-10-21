@@ -190,8 +190,10 @@ class SDKServer {
       openId: payload.openId,
       appId: payload.appId,
       name: payload.name,
+      deploymentSession: ENV.isProduction ? "production-v1" : "development-v1",
     })
       .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+      .setIssuedAt(Math.floor(issuedAt / 1000))
       .setExpirationTime(expirationSeconds)
       .sign(secretKey);
   }
@@ -210,6 +212,9 @@ class SDKServer {
         algorithms: ["HS256"],
       });
       const { openId, appId, name } = payload as Record<string, unknown>;
+      if (ENV.isProduction && (appId !== ENV.appId || payload.deploymentSession !== "production-v1")) {
+        return null;
+      }
 
       if (
         !isNonEmptyString(openId) ||

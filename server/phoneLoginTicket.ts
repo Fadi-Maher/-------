@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { ENV } from "./_core/env";
+import { assertDemoPhoneVerificationAllowed } from "./phoneVerificationPolicy";
 
 export const PHONE_LOGIN_TTL_MS = 15 * 60_000;
 const scope = "phone-login-v1";
@@ -29,6 +30,7 @@ export function verifyPhoneLoginTicket(
   token: string,
   now = Date.now()
 ): string {
+  assertDemoPhoneVerificationAllowed();
   const failure = () =>
     new TRPCError({
       code: "UNAUTHORIZED",

@@ -11,13 +11,11 @@ import {
   verifyPhoneCode,
 } from "./phoneOtpDb";
 import { verifyPhoneLoginTicket } from "./phoneLoginTicket";
+import { getPhoneVerificationConfig } from "./phoneVerificationPolicy";
 
 const language = z.enum(["ar", "en"]).default("ar");
 export const phoneAuthRouter = router({
-  config: publicProcedure.query(() => ({
-    mode: "demo" as const,
-    realMessagesSent: false,
-  })),
+  config: publicProcedure.query(() => getPhoneVerificationConfig()),
   requestCode: publicProcedure
     .input(z.object({ phone: z.string().regex(/^05\d{8}$/), language }))
     .mutation(({ input }) => requestPhoneCode(input.phone, input.language)),

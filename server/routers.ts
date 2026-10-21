@@ -90,6 +90,7 @@ import { orderSupportRouter } from "./orderSupportRouter";
 import { getCustomerProfileByPhone, updateCustomerProfileByPhone } from "./customerProfileDb";
 import { assertCanRequestPhoneChange, assertPhoneAccessCurrent, changeCustomerPhone } from "./customerPhoneChangeDb";
 import { requestPhoneCode, verifyPhoneCode } from "./phoneOtpDb";
+import { assertDemoPhoneVerificationAllowed } from "./phoneVerificationPolicy";
 const requestStatuses = ["received", "in_review", "in_progress", "completed"] as const;
 const requestPriorities = ["low", "normal", "high", "urgent"] as const;
 const assistantMessageInput = z.object({
@@ -180,6 +181,7 @@ const readPhoneAccessToken = (token: string) => {
 };
 /** The verified customer phone for a token, unless the customer has since moved to another number. */
 const requireCustomerPhone = async (token: string) => {
+  assertDemoPhoneVerificationAllowed();
   const { phone, issuedAtMs } = readPhoneAccessToken(token);
   await assertPhoneAccessCurrent(phone, issuedAtMs);
   return phone;
@@ -326,6 +328,7 @@ export const appRouter = router({
       phone: z.string().trim().regex(/^0?5\d{8}$/).transform((value) => value.startsWith("0") ? value : `0${value}`),
       code: z.string().regex(/^\d{6}$/),
     })).mutation(async ({ input, ctx }) => {
+      assertDemoPhoneVerificationAllowed();
       if (input.code !== "123456") throw new TRPCError({ code: "UNAUTHORIZED", message: "رمز التحقق غير صحيح." });
       const account = await getActiveAgentAccountByPhone(input.phone);
       if (!account) throw new TRPCError({ code: "FORBIDDEN", message: "رقم الجوال غير مسجل كمعقب مفعل." });
@@ -582,7 +585,7 @@ export const appRouter = router({
     }),
     list: adminProcedure.query(() => listTransactionRequests()),
     staff: adminProcedure.query(() => listAssignableStaff()),
-    track: publicProcedure
+    track: adminProcedure
       .input(z.object({ reference: z.string().trim().min(6).max(40) }))
       .query(({ input }) => getRequestTracking(input.reference.toUpperCase())),
     trackByPhoneAdmin: adminProcedure
@@ -597,6 +600,7 @@ export const appRouter = router({
         code: z.string().regex(/^\d{6}$/),
       }))
       .mutation(async ({ input }) => {
+        assertDemoPhoneVerificationAllowed();
         if (input.code !== "123456") {
           throw new TRPCError({ code: "UNAUTHORIZED", message: "رمز التحقق غير صحيح." });
         }

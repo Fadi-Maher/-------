@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { PhoneVerificationUnavailable } from "@/components/PhoneVerificationUnavailable";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { finishSignIn } from "@/lib/authFlow";
@@ -51,7 +52,12 @@ function mutationErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
-export function CustomerAuthForm({
+export function CustomerAuthForm(props: CustomerAuthFormProps) {
+  if (import.meta.env.PROD) return <PhoneVerificationUnavailable />;
+  return <CustomerAuthFormContent {...props} />;
+}
+
+function CustomerAuthFormContent({
   mode = "signin",
   variant = "page",
   onBusyChange,
