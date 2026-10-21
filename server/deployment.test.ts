@@ -57,6 +57,15 @@ describe("production startup configuration", () => {
     vi.stubEnv("DATABASE_URL", "");
     expect(() => assertProductionEnvironment()).not.toThrow();
   });
+  it("starts in production without OWNER_OPEN_ID, matching the hosted runtime", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DATABASE_URL", "mysql://configured");
+    vi.stubEnv("JWT_SECRET", "configured");
+    vi.stubEnv("VITE_APP_ID", "configured");
+    vi.stubEnv("OAUTH_SERVER_URL", "https://configured.invalid");
+    vi.stubEnv("OWNER_OPEN_ID", "");
+    expect(() => assertProductionEnvironment()).not.toThrow();
+  });
 });
 
 describe("health endpoints and response safety", () => {

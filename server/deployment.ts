@@ -6,7 +6,9 @@ const DATABASE_HEALTH_TIMEOUT_MS = 3000;
 
 export function assertProductionEnvironment() {
   if (process.env.NODE_ENV !== "production") return;
-  const required = ["DATABASE_URL", "JWT_SECRET", "VITE_APP_ID", "OAUTH_SERVER_URL", "OWNER_OPEN_ID"];
+  // OWNER_OPEN_ID is optional in the hosted runtime: the owner's admin role is
+  // already persisted, and every comparison against it requires a non-empty openId.
+  const required = ["DATABASE_URL", "JWT_SECRET", "VITE_APP_ID", "OAUTH_SERVER_URL"];
   const missing = required.filter(name => !process.env[name]?.trim());
   if (missing.length) {
     throw new Error(`Missing required production configuration: ${missing.join(", ")}`);
