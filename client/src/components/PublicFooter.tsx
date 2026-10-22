@@ -1,13 +1,14 @@
 import { useLanguage } from "@/contexts/LanguageContext";
 import { BrandMark } from "@/components/BrandMark";
 import { HeartHandshake } from "lucide-react";
+import { homeTrackingCopy } from "@/lib/phoneTrackingCopy";
 
 const footerGroups = {
   ar: [
     {
       title: "الخدمات",
       links: [
-        { label: "تعقّب المعاملات", href: "/track" },
+        homeTrackingCopy(false).footerTrackLink,
         { label: "طلب خدمة", href: "/#request" },
         { label: "خدمات الأعمال", href: "/#services" },
       ],
@@ -38,7 +39,7 @@ const footerGroups = {
     {
       title: "Services",
       links: [
-        { label: "Track requests", href: "/track" },
+        homeTrackingCopy(true).footerTrackLink,
         { label: "Request a service", href: "/#request" },
         { label: "Business services", href: "/#services" },
       ],

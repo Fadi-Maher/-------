@@ -7,11 +7,12 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CUSTOMER_SESSION_EVENT, readCustomerSession } from "@/lib/customerSession";
+import { homeTrackingCopy } from "@/lib/phoneTrackingCopy";
 import { useSignedInWorkspace, workspaceLabel } from "@/lib/signedInWorkspace";
 import { BadgeCheck, BriefcaseBusiness, Building2, Headphones, Home, LogOut, Menu, Route, UserRound } from "lucide-react";
 
 const productNav = [
-  { ar: "تعقّب المعاملات", en: "Track requests", icon: Route, action: "تعقّب المعاملات" },
+  { ar: "تعقّب المعاملات", en: homeTrackingCopy(true).serviceLabel, icon: Route, action: "تعقّب المعاملات" },
   { ar: "طلب خدمة", en: "Request a service", icon: Building2, action: "طلب خدمة" },
   { ar: "خدمات الأعمال", en: "Business services", icon: BriefcaseBusiness, action: "طلب خدمة" },
   { ar: "تواصل ودعم", en: "Support", icon: Headphones, href: "/contact" },
@@ -103,7 +104,7 @@ function SideNavigation({ onChooseService }: { onChooseService: (service: string
       : { ar: "الدخول", en: "Sign in", icon: UserRound, href: "/login" },
     ...(workspace ? [] : [{ ar: "دخول المعقبين", en: "Agent sign-in", icon: BadgeCheck, href: "/agent-login" }]),
     { ar: "انضم كمعقّب", en: "Join as an agent", icon: BriefcaseBusiness, href: "/join-as-agent" },
-    { ar: "تعقّب المعاملات", en: "Track requests", icon: Route, action: "تعقّب المعاملات" },
+    { ar: "تعقّب المعاملات", en: homeTrackingCopy(true).serviceLabel, icon: Route, action: "تعقّب المعاملات" },
     { ar: "طلب خدمة", en: "Request a service", icon: Building2, action: "طلب خدمة" },
     { ar: "خدمات الأعمال", en: "Business services", icon: BriefcaseBusiness, action: "طلب خدمة" },
     { ar: "تواصل ودعم", en: "Support", icon: Headphones, href: "/contact" },
