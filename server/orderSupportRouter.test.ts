@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 const operations = vi.hoisted(() => ({
   limitSupport: vi.fn(),
+  followupSupportFeedback: vi.fn(),
+  getSupportImage: vi.fn(),
   getSupportConfig: vi.fn(),
   startSupport: vi.fn(async () => ({ token: "a".repeat(64) })),
   readSupport: vi.fn(),
@@ -49,6 +51,9 @@ describe("صلاحيات دعم الطلبات", () => {
       await expect(caller.admin.list({})).rejects.toMatchObject({
         code: "FORBIDDEN",
       });
+      await expect(
+        caller.admin.image({ id: crypto.randomUUID() })
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
       await expect(caller.admin.analytics()).rejects.toMatchObject({
         code: "FORBIDDEN",
       });
@@ -137,5 +142,39 @@ describe("صلاحيات دعم الطلبات", () => {
     expect(await caller.finish({ token: "a".repeat(64) })).toMatchObject({
       status: "closed",
     });
+  });
+  it("يرفض متابعات وصورًا دون موافقة أو بصيغ غير مسموحة", async () => {
+    const caller = orderSupportRouter.createCaller(context(null));
+    await expect(
+      caller.followup({
+        id: crypto.randomUUID(),
+        note: "تفاصيل",
+        consent: false as true,
+      })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(
+      caller.followup({
+        id: crypto.randomUUID(),
+        note: "a".repeat(501),
+        consent: true,
+      })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(
+      caller.handoff({
+        token: "a".repeat(64),
+        consent: true,
+        attachment: {
+          id: crypto.randomUUID(),
+          mimeType: "image/svg+xml" as "image/png",
+          dataBase64: "PHN2Zz4=",
+        },
+      })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(
+      caller.image({ token: "reference-123", id: crypto.randomUUID() })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(
+      caller.admin.image({ id: crypto.randomUUID() })
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 });

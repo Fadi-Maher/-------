@@ -22,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/lib/trpc";
 import { buildSupportReply, supportIntents } from "@shared/orderSupport";
 import { toast } from "sonner";
+import { SupportScreenshot } from "@/components/support/SupportScreenshot";
 
 const statusLabels = {
   bot: "المساعد الآلي",
@@ -322,6 +323,19 @@ function Inbox() {
                         </p>
                       </div>
                     ))}
+                    {detail.data?.attachments.map(a => (
+                      <SupportScreenshot key={a.id} id={a.id} owner />
+                    ))}
+                    {detail.data?.feedback?.followupNote ? (
+                      <div className="rounded-xl border border-primary/20 bg-secondary/40 p-4">
+                        <h3 className="mb-2 text-xs font-bold text-primary">
+                          تفاصيل إضافية بعد التقييم المنخفض
+                        </h3>
+                        <p className="whitespace-pre-wrap break-words text-xs leading-7">
+                          {detail.data.feedback.followupNote}
+                        </p>
+                      </div>
+                    ) : null}
                   </div>
                   {detail.data?.status !== "closed" ? (
                     <form
@@ -534,6 +548,16 @@ function Inbox() {
                         <p className="whitespace-pre-wrap break-words text-xs leading-7">
                           {item.comment}
                         </p>
+                        {item.followupNote ? (
+                          <div className="mt-3 border-t border-border pt-3">
+                            <p className="mb-1 text-[10px] font-bold text-primary">
+                              تفاصيل إضافية بعد التقييم
+                            </p>
+                            <p className="whitespace-pre-wrap break-words text-xs leading-7">
+                              {item.followupNote}
+                            </p>
+                          </div>
+                        ) : null}
                       </div>
                     ))}
                   </div>

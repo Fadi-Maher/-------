@@ -4,12 +4,14 @@ import { eq } from "drizzle-orm";
 import { getDb } from "./db";
 import * as support from "./orderSupportDb";
 import {
+  supportAttachments,
   supportEvents,
   supportFeedback,
   supportMessages,
   supportRateLimits,
   supportSessions,
 } from "../drizzle/supportSchema";
+import sharp from "sharp";
 const tokens: string[] = [];
 const rateKey = `support-integration-${randomUUID()}`;
 // Isolate anonymous test events with a unique future timestamp; delete only that exact stamp.
@@ -149,13 +151,11 @@ describe("تكامل الدعم الحقيقي", () => {
     await expect(support.readSupport(token)).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
-    await db!
-      .insert(supportRateLimits)
-      .values({
-        keyHash: hash(rateKey),
-        requestCount: 80,
-        windowStartedAt: stamp,
-      });
+    await db!.insert(supportRateLimits).values({
+      keyHash: hash(rateKey),
+      requestCount: 80,
+      windowStartedAt: stamp,
+    });
     await expect(support.limitSupport(rateKey)).rejects.toMatchObject({
       code: "TOO_MANY_REQUESTS",
     });
@@ -227,4 +227,151 @@ describe("تكامل الدعم الحقيقي", () => {
         .where(eq(supportFeedback.sessionId, history.id))
     ).toHaveLength(0);
   }, 30000);
+  it("يحمي التفاصيل الإضافية للمجهول وللجلسة ولا يكرر حفظها أو يغير النجوم", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(stamp);
+    const db = await getDb();
+    const id = randomUUID();
+    const accessKey = "c".repeat(64);
+    await support.submitSupportFeedback({
+      id,
+      accessKey,
+      language: "ar",
+      stars: 2,
+      comment: "",
+      consent: true,
+      finished: true,
+    });
+    await expect(
+      support.followupSupportFeedback({
+        id,
+        accessKey: "d".repeat(64),
+        note: "wrong",
+        consent: true,
+      })
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await support.followupSupportFeedback({
+      id,
+      accessKey,
+      note: "تعثر في الخطوة، البريد private@example.com",
+      consent: true,
+    });
+    await support.followupSupportFeedback({
+      id,
+      accessKey,
+      note: "duplicate",
+      consent: true,
+    });
+    const [row] = await db!
+      .select()
+      .from(supportFeedback)
+      .where(eq(supportFeedback.id, id));
+    expect(row.accessKeyHash).toBe(hash(accessKey));
+    expect(row.accessKeyHash).not.toBe(accessKey);
+    expect(row.followupNote).not.toContain("private@example");
+    expect(row.followupNote).not.toBe("duplicate");
+    expect(row.stars).toBe(2);
+    const { token } = await support.startSupport("ar", []);
+    tokens.push(token);
+    await support.finishSupport(token);
+    const own = await support.submitSupportFeedback({
+      id: randomUUID(),
+      token,
+      language: "ar",
+      stars: 1,
+      comment: "",
+      consent: true,
+      finished: true,
+    });
+    await expect(
+      support.followupSupportFeedback({
+        id: own.id,
+        token: "e".repeat(64),
+        note: "wrong",
+        consent: true,
+      })
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await support.followupSupportFeedback({
+      id: own.id,
+      token,
+      note: "الخطوات لم تكن واضحة",
+      consent: true,
+    });
+    expect((await support.readSupport(token)).feedback?.followupProvided).toBe(
+      true
+    );
+    const positive = await support.submitSupportFeedback({
+      id: randomUUID(),
+      accessKey,
+      language: "ar",
+      stars: 4,
+      comment: "",
+      consent: true,
+      finished: true,
+    });
+    await expect(
+      support.followupSupportFeedback({
+        id: positive.id,
+        accessKey,
+        note: "unsupported",
+        consent: true,
+      })
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  }, 30000);
+  it("يحفظ لقطة مشفرة مع التصعيد مرة ويحميها من رمز مختلف ثم يبطلها عند حذف المحادثة", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(stamp);
+    const db = await getDb();
+    const { token } = await support.startSupport("ar", []);
+    tokens.push(token);
+    const attachment = {
+      id: randomUUID(),
+      mimeType: "image/png" as const,
+      dataBase64: (
+        await sharp({
+          create: { width: 24, height: 16, channels: 3, background: "#0878f9" },
+        })
+          .png()
+          .toBuffer()
+      ).toString("base64"),
+    };
+    await expect(
+      support.handoffSupport(token, {
+        ...attachment,
+        dataBase64: Buffer.from("invalid").toString("base64"),
+      })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect((await support.readSupport(token)).status).toBe("bot");
+    await support.handoffSupport(token, attachment);
+    await support.handoffSupport(token, attachment);
+    const history = await support.readSupport(token);
+    expect(history.attachments).toHaveLength(1);
+    expect(JSON.stringify(history)).not.toMatch(
+      /storageKey|support-private|manus-storage/
+    );
+    const rows = await db!
+      .select()
+      .from(supportAttachments)
+      .where(eq(supportAttachments.sessionId, history.id));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].storageKey).toMatch(/support-private/);
+    await expect(
+      support.getSupportImage(attachment.id, "f".repeat(64))
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    const image = await support.getSupportImage(attachment.id, token);
+    expect(
+      (await sharp(Buffer.from(image.dataBase64, "base64")).metadata()).format
+    ).toBe("webp");
+    expect(
+      (await support.getSupportImage(attachment.id, undefined, true)).dataBase64
+    ).toBe(image.dataBase64);
+    await support.deleteSupport(token);
+    await expect(
+      support.getSupportImage(attachment.id, token)
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(
+      await db!
+        .select()
+        .from(supportAttachments)
+        .where(eq(supportAttachments.id, attachment.id))
+    ).toHaveLength(0);
+  }, 45000);
 });

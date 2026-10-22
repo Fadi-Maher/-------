@@ -18,7 +18,12 @@ const state = vi.hoisted(() => ({
   pending: false,
   history: {
     status: "waiting",
-    feedback: null as { stars: number } | null,
+    feedback: null as {
+      id?: string;
+      stars: number;
+      followupProvided?: boolean;
+    } | null,
+    attachments: [] as { id: string }[],
     rating: null,
     messages: [
       {
@@ -36,6 +41,7 @@ const state = vi.hoisted(() => ({
   forget: vi.fn(),
   finish: vi.fn(),
   feedback: vi.fn(),
+  followup: vi.fn(),
   invalidate: vi.fn(async () => {}),
   refetch: vi.fn(),
 }));
@@ -98,6 +104,9 @@ vi.mock("@/lib/trpc", () => ({
       feedback: {
         useMutation: () => ({ mutateAsync: state.feedback, isPending: false }),
       },
+      followup: {
+        useMutation: () => ({ mutateAsync: state.followup, isPending: false }),
+      },
     },
   },
 }));
@@ -123,6 +132,7 @@ beforeEach(() => {
   state.pending = false;
   state.history = {
     status: "waiting",
+    attachments: [],
     feedback: null,
     rating: null,
     messages: [
@@ -136,22 +146,23 @@ beforeEach(() => {
     ],
   };
   state.start.mockReset().mockResolvedValue({ token: "a".repeat(64) });
-  state.send
-    .mockReset()
-    .mockResolvedValue({
-      saved: false,
-      reply: {
-        text: "افتح صفحة التتبع بعد التحقق.",
-        intent: "tracking",
-        actions: [{ label: "تتبع طلبي بأمان", href: "/track" }],
-        suggestions: ["أين أجد مرفقات طلبي؟"],
-        handoff: false,
-      },
-    });
+  state.send.mockReset().mockResolvedValue({
+    saved: false,
+    reply: {
+      text: "افتح صفحة التتبع بعد التحقق.",
+      intent: "tracking",
+      actions: [{ label: "تتبع طلبي بأمان", href: "/track" }],
+      suggestions: ["أين أجد مرفقات طلبي؟"],
+      handoff: false,
+    },
+  });
   state.handoff.mockReset().mockResolvedValue({ status: "waiting" });
   state.forget.mockReset().mockResolvedValue({ success: true });
   state.finish.mockReset().mockResolvedValue({ status: "closed" });
-  state.feedback.mockReset().mockResolvedValue({ success: true, stars: 4 });
+  state.feedback
+    .mockReset()
+    .mockResolvedValue({ success: true, id: crypto.randomUUID(), stars: 4 });
+  state.followup.mockReset().mockResolvedValue({ success: true });
   state.invalidate.mockClear();
 });
 afterEach(() => {
@@ -339,6 +350,83 @@ describe("واجهة مساعد الطلبات", () => {
     expect(state.feedback).not.toHaveBeenCalled();
   });
 });
+describe("ربط مشاركة الدعم والمتابعة", () => {
+  it("يرسل تفاصيل تقييم منخفض بمفتاح مجهول دون تفعيل حفظ المحادثة", async () => {
+    const id = crypto.randomUUID();
+    state.feedback.mockResolvedValue({ success: true, id, stars: 1 });
+    render(React.createElement(OrderSupport));
+    await askQuestion();
+    fireEvent.click(screen.getByRole("button", { name: "إنهاء المحادثة" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "إنهاء وتقييم المحادثة" })
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("radio", { name: "1 من 5 نجوم" })).toBeTruthy()
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "1 من 5 نجوم" }));
+    fireEvent.click(screen.getByRole("button", { name: "إرسال تقييمي" }));
+    await waitFor(() =>
+      expect(screen.getByLabelText("تفاصيل إضافية (اختياري)")).toBeTruthy()
+    );
+    fireEvent.change(screen.getByLabelText("تفاصيل إضافية (اختياري)"), {
+      target: { value: "لم أفهم الخطوة التالية" },
+    });
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: "أوافق على إرسال هذه التفاصيل الإضافية لتحسين الدعم.",
+      })
+    );
+    fireEvent.submit(
+      screen.getByLabelText("تفاصيل إضافية (اختياري)").closest("form")!
+    );
+    await waitFor(() =>
+      expect(state.followup).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id,
+          token: undefined,
+          consent: true,
+          note: "لم أفهم الخطوة التالية",
+          accessKey: state.feedback.mock.calls[0][0].accessKey,
+        })
+      )
+    );
+    expect(state.start).not.toHaveBeenCalled();
+  });
+  it("لا يرفع اللقطة المختارة قبل التأكيد ثم يرسلها مع التصعيد", async () => {
+    class TestURL extends URL {
+      static createObjectURL = () => "blob:local-only";
+      static revokeObjectURL = () => {};
+    }
+    vi.stubGlobal("URL", TestURL);
+    render(React.createElement(OrderSupport));
+    fireEvent.click(screen.getByRole("button", { name: "طلب موظف" }));
+    const file = new File([new Uint8Array([137, 80, 78, 71])], "issue.png", {
+      type: "image/png",
+    });
+    fireEvent.change(screen.getByLabelText("اختيار صورة المشكلة"), {
+      target: { files: [file] },
+    });
+    expect(state.start).not.toHaveBeenCalled();
+    expect(state.handoff).not.toHaveBeenCalled();
+    expect(screen.getByText(/لم تُرفع بعد/)).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: "أوافق، أرسل إلى الدعم" })
+    );
+    await waitFor(() =>
+      expect(state.handoff).toHaveBeenCalledWith(
+        expect.objectContaining({
+          token: "a".repeat(64),
+          consent: true,
+          attachment: expect.objectContaining({
+            mimeType: "image/png",
+            dataBase64: "iVBORw==",
+          }),
+        })
+      )
+    );
+  });
+});
+
 describe("مكونات الدعم الجديدة", () => {
   it("يوسّع كل9 موضوعات ويُرسل النص المناسب ويعطّل الاختيار", () => {
     const onSelect = vi.fn();
@@ -416,7 +504,11 @@ describe("مكونات الدعم الجديدة", () => {
     ).toBe("أحتاج خطوات أوضح");
     fireEvent.click(screen.getByRole("button", { name: "إعادة إرسال تقييمي" }));
     await waitFor(() =>
-      expect(screen.getByText("شكرًا! ملاحظتك تصنع فرقًا.")).toBeTruthy()
+      expect(
+        screen.getByText(
+          "شكرًا لصراحتك، ونعتذر أن التجربة لم تكن بالمستوى المطلوب."
+        )
+      ).toBeTruthy()
     );
     expect(submit.mock.calls[1]).toEqual([2, "أحتاج خطوات أوضح"]);
   });

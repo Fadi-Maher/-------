@@ -3,6 +3,7 @@ import { and, asc, avg, count, desc, eq, gt, sql } from "drizzle-orm";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
   supportConfig,
+  supportAttachments,
   supportEvents,
   supportFeedback,
   supportMessages,
@@ -20,6 +21,13 @@ import {
   supportFeedbackInput,
   type SupportFeedbackInput,
 } from "../shared/supportFeedback";
+
+import {
+  supportFollowupInput,
+  type SupportFollowupInput,
+  type SupportImageInput,
+} from "../shared/supportSharing";
+import { loadSupportImage, storeSupportImage } from "./orderSupportImages";
 
 const TTL = 30 * 24 * 60 * 60 * 1000;
 const hash = (value: string) =>
@@ -110,7 +118,7 @@ export async function startSupport(
     });
     if (turns.length)
       await tx.insert(supportMessages).values(
-        turns.slice(-20).map((t, i) => ({
+        turns.slice(-280).map((t, i) => ({
           id: randomUUID(),
           sessionId: id,
           turnId: randomUUID(),
@@ -147,7 +155,11 @@ export async function readSupport(token: string) {
     .orderBy(asc(supportMessages.createdAt))
     .limit(300);
   const [feedback] = await db
-    .select({ stars: supportFeedback.stars })
+    .select({
+      id: supportFeedback.id,
+      stars: supportFeedback.stars,
+      followupNote: supportFeedback.followupNote,
+    })
     .from(supportFeedback)
     .where(eq(supportFeedback.sessionId, session.id))
     .limit(1);
@@ -156,7 +168,22 @@ export async function readSupport(token: string) {
     status: session.status,
     language: session.language,
     rating: session.rating,
-    feedback: feedback ?? null,
+    feedback: feedback
+      ? {
+          id: feedback.id,
+          stars: feedback.stars,
+          followupProvided: Boolean(feedback.followupNote),
+        }
+      : null,
+    attachments: await db
+      .select({
+        id: supportAttachments.id,
+        mimeType: supportAttachments.mimeType,
+        byteSize: supportAttachments.byteSize,
+      })
+      .from(supportAttachments)
+      .where(eq(supportAttachments.sessionId, session.id))
+      .limit(1),
     messages,
   };
 }
@@ -284,7 +311,10 @@ export async function sendSupport(input: {
     return { reply, saved: true };
   });
 }
-export async function handoffSupport(token: string) {
+export async function handoffSupport(
+  token: string,
+  attachment?: SupportImageInput
+) {
   const config = await getSupportConfig();
   if (!config.handoffEnabled)
     throw new TRPCError({
@@ -311,7 +341,38 @@ export async function handoffSupport(token: string) {
         code: "PRECONDITION_FAILED",
         message: "المحادثة مغلقة. ابدأ محادثة جديدة.",
       });
-    if (session.status !== "bot") return { status: session.status };
+    const [existingImage] = await tx
+      .select({ id: supportAttachments.id })
+      .from(supportAttachments)
+      .where(eq(supportAttachments.sessionId, session.id))
+      .limit(1);
+    if (session.status !== "bot") {
+      if (attachment && attachment.id !== existingImage?.id)
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "تم التصعيد بالفعل. لا يمكن إضافة صورة جديدة بهذه العملية.",
+        });
+      return { status: session.status };
+    }
+    if (attachment && !existingImage) {
+      const [collision] = await tx
+        .select({ id: supportAttachments.id })
+        .from(supportAttachments)
+        .where(eq(supportAttachments.id, attachment.id))
+        .limit(1);
+      if (collision)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "استخدم معرّف صورة جديدًا.",
+        });
+      const stored = await storeSupportImage(attachment.id, attachment);
+      await tx.insert(supportAttachments).values({
+        id: attachment.id,
+        sessionId: session.id,
+        ...stored,
+        createdAt: Date.now(),
+      });
+    }
     const now = Date.now();
     await tx
       .update(supportSessions)
@@ -415,13 +476,26 @@ export async function supportDetail(id: string) {
   if (!session)
     throw new TRPCError({ code: "NOT_FOUND", message: "المحادثة غير موجودة." });
   const [feedback] = await db
-    .select({ stars: supportFeedback.stars, comment: supportFeedback.comment })
+    .select({
+      stars: supportFeedback.stars,
+      comment: supportFeedback.comment,
+      followupNote: supportFeedback.followupNote,
+    })
     .from(supportFeedback)
     .where(eq(supportFeedback.sessionId, id))
     .limit(1);
   return {
     ...session,
     feedback: feedback ?? null,
+    attachments: await db
+      .select({
+        id: supportAttachments.id,
+        mimeType: supportAttachments.mimeType,
+        byteSize: supportAttachments.byteSize,
+      })
+      .from(supportAttachments)
+      .where(eq(supportAttachments.sessionId, id))
+      .limit(1),
     messages: await db
       .select()
       .from(supportMessages)
@@ -555,13 +629,14 @@ export async function supportAnalytics() {
       id: supportFeedback.id,
       stars: supportFeedback.stars,
       comment: supportFeedback.comment,
+      followupNote: supportFeedback.followupNote,
       createdAt: supportFeedback.createdAt,
     })
     .from(supportFeedback)
     .where(
       and(
         gt(supportFeedback.createdAt, since),
-        sql`${supportFeedback.comment} IS NOT NULL AND ${supportFeedback.comment} <> ''`
+        sql`((${supportFeedback.comment} IS NOT NULL AND ${supportFeedback.comment} <> '') OR (${supportFeedback.followupNote} IS NOT NULL AND ${supportFeedback.followupNote} <> ''))`
       )
     )
     .orderBy(desc(supportFeedback.createdAt))
@@ -616,11 +691,12 @@ export async function submitSupportFeedback(raw: SupportFeedbackInput) {
         });
       sessionId = session.id;
       const [existing] = await tx
-        .select({ stars: supportFeedback.stars })
+        .select({ id: supportFeedback.id, stars: supportFeedback.stars })
         .from(supportFeedback)
         .where(eq(supportFeedback.sessionId, sessionId))
         .limit(1);
-      if (existing) return { success: true, stars: existing.stars };
+      if (existing)
+        return { success: true, id: existing.id, stars: existing.stars };
     }
     const [duplicate] = await tx
       .select({
@@ -636,7 +712,7 @@ export async function submitSupportFeedback(raw: SupportFeedbackInput) {
           code: "BAD_REQUEST",
           message: "استخدم معرّفًا جديدًا للتقييم.",
         });
-      return { success: true, stars: duplicate.stars };
+      return { success: true, id: input.id, stars: duplicate.stars };
     }
     await tx
       .insert(supportFeedback)
@@ -646,6 +722,7 @@ export async function submitSupportFeedback(raw: SupportFeedbackInput) {
         stars: input.stars,
         comment: redactSupportText(input.comment).slice(0, 500) || null,
         language: input.language,
+        accessKeyHash: input.accessKey ? hash(input.accessKey) : null,
         consentVersion: "2026-10-22",
         createdAt: Date.now(),
       })
@@ -655,6 +732,97 @@ export async function submitSupportFeedback(raw: SupportFeedbackInput) {
       .from(supportFeedback)
       .where(eq(supportFeedback.id, input.id))
       .limit(1);
-    return { success: true, stars: saved?.stars ?? input.stars };
+    return { success: true, id: input.id, stars: saved?.stars ?? input.stars };
   });
+}
+
+export async function followupSupportFeedback(raw: SupportFollowupInput) {
+  const input = supportFollowupInput.parse(raw);
+  const db = await database();
+  return db.transaction(async tx => {
+    const [feedback] = await tx
+      .select()
+      .from(supportFeedback)
+      .where(
+        and(
+          eq(supportFeedback.id, input.id),
+          gt(supportFeedback.createdAt, Date.now() - TTL)
+        )
+      )
+      .limit(1)
+      .for("update");
+    const denied = () =>
+      new TRPCError({
+        code: "NOT_FOUND",
+        message: "التقييم غير متاح أو لا تملك صلاحية متابعته.",
+      });
+    if (!feedback) throw denied();
+    if (feedback.sessionId) {
+      if (!input.token) throw denied();
+      const [session] = await tx
+        .select({ id: supportSessions.id })
+        .from(supportSessions)
+        .where(
+          and(
+            eq(supportSessions.id, feedback.sessionId),
+            eq(supportSessions.tokenHash, hash(input.token)),
+            eq(supportSessions.status, "closed"),
+            gt(supportSessions.createdAt, Date.now() - TTL)
+          )
+        )
+        .limit(1);
+      if (!session) throw denied();
+    } else if (
+      !input.accessKey ||
+      feedback.accessKeyHash !== hash(input.accessKey)
+    )
+      throw denied();
+    if (feedback.stars > 2)
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: "التفاصيل الإضافية متاحة للتقييم1أو2فقط.",
+      });
+    if (feedback.followupNote !== null) return { success: true };
+    await tx
+      .update(supportFeedback)
+      .set({
+        followupNote: redactSupportText(input.note).slice(0, 500),
+        followupCreatedAt: Date.now(),
+      })
+      .where(eq(supportFeedback.id, feedback.id));
+    return { success: true };
+  });
+}
+export async function getSupportImage(
+  id: string,
+  token?: string,
+  owner = false
+) {
+  const db = await database();
+  const [attachment] = await db
+    .select({ storageKey: supportAttachments.storageKey })
+    .from(supportAttachments)
+    .innerJoin(
+      supportSessions,
+      eq(supportAttachments.sessionId, supportSessions.id)
+    )
+    .where(
+      and(
+        eq(supportAttachments.id, id),
+        gt(supportSessions.createdAt, Date.now() - TTL),
+        sql`${supportSessions.status} <> 'bot'`,
+        owner
+          ? sql`TRUE`
+          : token
+            ? eq(supportSessions.tokenHash, hash(token))
+            : sql`FALSE`
+      )
+    )
+    .limit(1);
+  if (!attachment)
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "لقطة الشاشة غير متاحة أو انتهت صلاحية الوصول.",
+    });
+  return loadSupportImage(attachment.storageKey);
 }

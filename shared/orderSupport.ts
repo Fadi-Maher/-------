@@ -106,7 +106,7 @@ export function normalizeSupportText(text: string) {
     .replace(/\s+/g, " ")
     .trim();
 }
-export function redactSupportText(text: string) {
+export function redactSupportText(text: string, maxLength = 1200) {
   return text
     .normalize("NFKC")
     .replace(/[٠-٩]/g, c => String(c.charCodeAt(0) - 1632))
@@ -119,7 +119,7 @@ export function redactSupportText(text: string) {
       "[بيانات محجوبة]"
     )
     .trim()
-    .slice(0, 1200);
+    .slice(0, maxLength);
 }
 const patterns: [string, RegExp][] = [
   [

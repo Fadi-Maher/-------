@@ -190,6 +190,13 @@
       "when": 1792625732945,
       "tag": "0026_smart_sandman",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "5",
+      "when": 1792627656968,
+      "tag": "0027_illegal_swordsman",
+      "breakpoints": true
     }
   ]
 }

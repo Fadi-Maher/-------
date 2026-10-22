@@ -3,6 +3,10 @@ import { z } from "zod";
 import { adminProcedure, publicProcedure, router } from "./_core/trpc";
 import * as db from "./orderSupportDb";
 import { supportFeedbackInput } from "../shared/supportFeedback";
+import {
+  supportFollowupInput,
+  supportImageInput,
+} from "../shared/supportSharing";
 
 const token = z.string().regex(/^[a-f0-9]{64}$/);
 const sessionInput = z.object({ token });
@@ -26,7 +30,7 @@ export const orderSupportRouter = router({
       z.object({
         language: z.enum(["ar", "en"]),
         consent: z.literal(true),
-        turns: z.array(turn).max(20).default([]),
+        turns: z.array(turn).max(280).default([]),
       })
     )
     .mutation(({ input }) => db.startSupport(input.language, input.turns)),
@@ -51,8 +55,13 @@ export const orderSupportRouter = router({
       return db.sendSupport(input);
     }),
   handoff: limited
-    .input(sessionInput.extend({ consent: z.literal(true) }))
-    .mutation(({ input }) => db.handoffSupport(input.token)),
+    .input(
+      sessionInput.extend({
+        consent: z.literal(true),
+        attachment: supportImageInput.optional(),
+      })
+    )
+    .mutation(({ input }) => db.handoffSupport(input.token, input.attachment)),
   forget: limited
     .input(sessionInput)
     .mutation(({ input }) => db.deleteSupport(input.token)),
@@ -65,7 +74,16 @@ export const orderSupportRouter = router({
   feedback: limited
     .input(supportFeedbackInput)
     .mutation(({ input }) => db.submitSupportFeedback(input)),
+  followup: limited
+    .input(supportFollowupInput)
+    .mutation(({ input }) => db.followupSupportFeedback(input)),
+  image: limited
+    .input(sessionInput.extend({ id: z.string().uuid() }))
+    .query(({ input }) => db.getSupportImage(input.id, input.token)),
   admin: router({
+    image: adminProcedure
+      .input(z.object({ id: z.string().uuid() }))
+      .query(({ input }) => db.getSupportImage(input.id, undefined, true)),
     list: adminProcedure
       .input(
         z.object({ status: z.enum(["waiting", "human", "closed"]).optional() })

@@ -47,6 +47,13 @@ import { toast } from "sonner";
 import { ConversationFeedback } from "@/components/support/ConversationFeedback";
 import { SupportTypingIndicator } from "@/components/support/SupportTypingIndicator";
 import { SupportQuickReplies } from "@/components/support/SupportQuickReplies";
+import {
+  SupportScreenshotPicker,
+  readSupportImageFile,
+  type SelectedSupportImage,
+} from "@/components/support/SupportScreenshotPicker";
+import { SupportScreenshot } from "@/components/support/SupportScreenshot";
+import { createSupportAccessKey } from "@shared/supportSharing";
 
 const STORAGE = "maalamati_order_support_token_v1";
 const EMPTY_TOKEN = "0".repeat(64);
@@ -99,6 +106,13 @@ export default function OrderSupport() {
   const [restored, setRestored] = useState(false);
   const [ended, setEnded] = useState(false);
   const [feedbackId, setFeedbackId] = useState(() => crypto.randomUUID());
+  const [feedbackAccessKey, setFeedbackAccessKey] = useState(
+    createSupportAccessKey
+  );
+  const [feedbackRecordId, setFeedbackRecordId] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] =
+    useState<SelectedSupportImage | null>(null);
+  const [preparingHandoff, setPreparingHandoff] = useState(false);
   const viewport = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
   const utils = trpc.useUtils();
@@ -124,13 +138,16 @@ export default function OrderSupport() {
   const forget = trpc.orderSupport.forget.useMutation();
   const finish = trpc.orderSupport.finish.useMutation();
   const feedback = trpc.orderSupport.feedback.useMutation();
+  const followup = trpc.orderSupport.followup.useMutation();
   const busy =
     start.isPending ||
     send.isPending ||
     handoff.isPending ||
     forget.isPending ||
     finish.isPending ||
-    feedback.isPending;
+    feedback.isPending ||
+    followup.isPending ||
+    preparingHandoff;
   const blocked =
     config.isLoading ||
     config.isError ||
@@ -177,13 +194,38 @@ export default function OrderSupport() {
       id: feedbackId,
       token: token ?? undefined,
       language: lang,
+      accessKey: feedbackAccessKey,
       stars,
       comment,
       consent: true,
       finished: true,
     });
+    setFeedbackRecordId(result.id);
     if (token) void utils.orderSupport.history.invalidate({ token });
     return result.stars;
+  }
+  async function submitFollowup(note: string) {
+    const id = feedbackRecordId ?? history.data?.feedback?.id;
+    if (!id)
+      throw new Error(
+        t(
+          "تعذر استعادة التقييم؛ حاول مجددًا.",
+          "Could not restore the rating; try again."
+        )
+      );
+    await followup.mutateAsync({
+      id,
+      token: token ?? undefined,
+      accessKey: token ? undefined : feedbackAccessKey,
+      note,
+      consent: true,
+    });
+    if (token) void utils.orderSupport.history.invalidate({ token });
+  }
+  function dismissDialog() {
+    if (busy) return;
+    setDialog(null);
+    setSelectedImage(null);
   }
   function resetConversation() {
     setMessages([]);
@@ -192,12 +234,15 @@ export default function OrderSupport() {
     setFailed(null);
     setEnded(false);
     setFeedbackId(crypto.randomUUID());
+    setFeedbackAccessKey(createSupportAccessKey());
+    setFeedbackRecordId(null);
+    setSelectedImage(null);
   }
   async function saveConversation() {
     const result = await start.mutateAsync({
       language: lang,
       consent: true,
-      turns: turns.slice(-20),
+      turns: turns.slice(-280),
     });
     setToken(result.token);
     try {
@@ -288,8 +333,24 @@ export default function OrderSupport() {
           t("تم تفعيل الحفظ الاختياري.", "Optional saving enabled.")
         );
       } else if (dialog === "handoff") {
+        setPreparingHandoff(true);
+        const attachment = selectedImage
+          ? {
+              id: selectedImage.id,
+              mimeType: selectedImage.file.type as
+                | "image/png"
+                | "image/jpeg"
+                | "image/webp",
+              dataBase64: await readSupportImageFile(selectedImage.file),
+            }
+          : null;
         const currentToken = token ?? (await saveConversation());
-        await handoff.mutateAsync({ token: currentToken, consent: true });
+        await handoff.mutateAsync({
+          token: currentToken,
+          consent: true,
+          ...(attachment ? { attachment } : {}),
+        });
+        setSelectedImage(null);
         await utils.orderSupport.history.invalidate({ token: currentToken });
         toast.success(
           t(
@@ -322,6 +383,8 @@ export default function OrderSupport() {
               "Could not complete this action. Try again."
             )
       );
+    } finally {
+      setPreparingHandoff(false);
     }
   }
   const statusLabel = t(
@@ -785,12 +848,25 @@ export default function OrderSupport() {
                     <SupportTypingIndicator isEnglish={en} />
                   )
                 ) : null}
+                {token &&
+                  history.data?.attachments.map(a => (
+                    <SupportScreenshot
+                      key={a.id}
+                      id={a.id}
+                      token={token}
+                      isEnglish={en}
+                    />
+                  ))}
                 {state === "closed" && !history.isError ? (
                   <ConversationFeedback
                     key={token ?? feedbackId}
                     isEnglish={en}
                     savedStars={history.data?.feedback?.stars}
                     onSubmit={submitFeedback}
+                    onFollowup={submitFollowup}
+                    followupProvided={history.data?.feedback?.followupProvided}
+                    transcriptMessages={messages}
+                    attachmentsCount={history.data?.attachments.length ?? 0}
                   />
                 ) : null}
               </div>
@@ -981,10 +1057,13 @@ export default function OrderSupport() {
       <Dialog
         open={dialog !== null}
         onOpenChange={open => {
-          if (!open && !busy) setDialog(null);
+          if (!open) dismissDialog();
         }}
       >
-        <DialogContent dir={en ? "ltr" : "rtl"} className="rounded-3xl">
+        <DialogContent
+          dir={en ? "ltr" : "rtl"}
+          className="max-h-[90dvh] overflow-y-auto rounded-3xl"
+        >
           <DialogHeader>
             <div className="mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-secondary text-primary">
               {dialog === "end" ? (
@@ -1020,8 +1099,8 @@ export default function OrderSupport() {
                     )
                   : dialog === "handoff"
                     ? t(
-                        "بالتأكيد توافق على حفظ رسائل هذه المحادثة وإرسالها إلى المالك لمراجعتها والرد هنا. نحجب أنماط البيانات الحساسة، لكن لا ترسل معلومات خاصة. مفتاح الاستعادة محفوظ في هذا المتصفح ويتيح لمن يستخدمه رؤية المحادثة لمدة 30 يومًا. لا يوجد موعد رد مضمون.",
-                        "Confirming saves this conversation and sends its messages to the owner for review and a reply here. Sensitive patterns are redacted, but do not share private information. A restore key in this browser allows its users to see this conversation for 30 days. Response time is not guaranteed."
+                        "بالتأكيد توافق على حفظ رسائل هذه المحادثة وإرسالها مع الصورة الاختيارية إلى المالك لمراجعتها والرد هنا. نحجب أنماط البيانات الحساسة، لكن لا ترسل معلومات خاصة. مفتاح الاستعادة محفوظ في هذا المتصفح ويتيح لمن يستخدمه رؤية المحادثة لمدة 30 يومًا. لا يوجد موعد رد مضمون.",
+                        "Confirming saves this conversation and sends its messages and optional screenshot to the owner for review and a reply here. Sensitive patterns are redacted, but do not share private information. A restore key in this browser allows its users to see this conversation for 30 days. Response time is not guaranteed."
                       )
                     : t(
                         "سيُحذف سجل هذه المحادثة من الخادم ويُزال مفتاح الاستعادة من المتصفح. لا يمكن استعادته بعد الحذف. يمكنك بعدها المتابعة دون حفظ أو بدء محادثة جديدة.",
@@ -1029,12 +1108,16 @@ export default function OrderSupport() {
                       )}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="mt-3 gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setDialog(null)}
+          {dialog === "handoff" ? (
+            <SupportScreenshotPicker
+              isEnglish={en}
+              value={selectedImage}
+              onChange={setSelectedImage}
               disabled={busy}
-            >
+            />
+          ) : null}
+          <DialogFooter className="mt-3 gap-2">
+            <Button variant="outline" onClick={dismissDialog} disabled={busy}>
               {t("رجوع", "Back")}
             </Button>
             <Button onClick={() => void confirmDialog()} disabled={busy}>

@@ -100,6 +100,9 @@ export const supportFeedback = mysqlTable(
     stars: int("stars").notNull(),
     comment: text("comment"),
     language: mysqlEnum("language", ["ar", "en"]).notNull(),
+    accessKeyHash: varchar("accessKeyHash", { length: 64 }),
+    followupNote: text("followupNote"),
+    followupCreatedAt: bigint("followupCreatedAt", { mode: "number" }),
     consentVersion: varchar("consentVersion", { length: 20 }).notNull(),
     createdAt: bigint("createdAt", { mode: "number" }).notNull(),
   },
@@ -108,5 +111,24 @@ export const supportFeedback = mysqlTable(
       t.sessionId
     ),
     created: index("order_support_feedback_created").on(t.createdAt),
+  })
+);
+
+export const supportAttachments = mysqlTable(
+  "order_support_attachments",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    sessionId: varchar("sessionId", { length: 36 })
+      .notNull()
+      .references(() => supportSessions.id, { onDelete: "cascade" }),
+    storageKey: text("storageKey").notNull(),
+    mimeType: varchar("mimeType", { length: 30 }).notNull(),
+    byteSize: int("byteSize").notNull(),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  t => ({
+    onePerHandoff: uniqueIndex("order_support_attachment_session").on(
+      t.sessionId
+    ),
   })
 );
