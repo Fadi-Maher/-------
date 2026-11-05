@@ -53,14 +53,14 @@ describe("animated request confirmation", () => {
   it("announces the live confirmation with the phone number in Arabic and English", () => {
     const ar = render(false, "received");
     expect(ar).toContain('role="status"');
-    expect(ar).toContain("تم استلام طلبك بنجاح");
-    expect(ar).toContain("سنتواصل معك على الجوال");
+    expect(ar).toContain("وصل طلبك، وفريقنا معك من هنا");
+    expect(ar).toContain("سيراجع فريق الدعم طلبك ويتواصل معك قريبًا");
     expect(ar).toContain('dir="ltr"');
     expect(ar).toContain("0590000000");
     expect(ar).toContain("وصل طلبك إلى فريقنا");
     const en = render(true, "received");
-    expect(en).toContain("Your request was received");
-    expect(en).toContain("We will contact you on");
+    expect(en).toContain("Your request is with our team");
+    expect(en).toContain("Our support team will review your request and contact you soon");
     expect(render(false, "saved")).toContain("تم حفظ طلبك");
   });
   it("keeps decorative motion hidden from assistive tech", () => {

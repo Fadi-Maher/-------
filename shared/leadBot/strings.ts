@@ -32,8 +32,8 @@ export const BOT_MESSAGES = {
     en: "We offer business plans: recurring handling of your transactions, a dedicated account manager and organised reporting per request.",
   },
   trackInfo: {
-    ar: "تقدر تتابع طلبك من صفحة التتبع برقم جوالك ورمز التحقق.",
-    en: "You can follow your request on the tracking page using your mobile number and a verification code.",
+    ar: "بعد إرسال طلبك يراجعه فريق معاملاتي كير، ويتواصل معك على رقم الجوال الذي أدخلته عند وجود تحديث أو حاجة إلى معلومة. إذا احتجت مساعدة، افتح قنوات الدعم.",
+    en: "After you submit, the Maalamati Care team reviews your request and contacts you on the mobile number you entered when there is an update or they need information. For help, open Support channels.",
   },
   partnerInfo: {
     ar: "يسعدنا انضمامك كمعقّب أو مقدم خدمة. تقدر تسجل مباشرة، أو تترك بياناتك ويتواصل معك فريق الشراكات.",
@@ -174,7 +174,7 @@ export const BOT_BUTTONS = {
   startRequest: { ar: "أبغى أطلب خدمة", en: "Request a service" },
   pricing: { ar: "الأسعار والعروض", en: "Prices & offers" },
   business: { ar: "حلول المنشآت", en: "Business plans" },
-  track: { ar: "تتبع طلب", en: "Track a request" },
+  track: { ar: "متابعة طلب", en: "Request follow-up" },
   partner: { ar: "أصبح معقّبًا", en: "Become an agent" },
   human: { ar: "تحدث مع موظف", en: "Talk to a person" },
   continueBot: { ar: "أكمل مع المساعد", en: "Continue with assistant" },
@@ -187,7 +187,7 @@ export const BOT_BUTTONS = {
   endChat: { ar: "إنهاء المحادثة", en: "End chat" },
   restart: { ar: "محادثة جديدة", en: "New conversation" },
   openRequestForm: { ar: "ابدأ نموذج الطلب", en: "Open service form" },
-  openTrack: { ar: "فتح صفحة التتبع", en: "Open tracking" },
+  openTrack: { ar: "قنوات الدعم والمتابعة", en: "Support & follow-up" },
   openAgentSignup: { ar: "التسجيل كمعقّب", en: "Register as agent" },
   leaveDetails: { ar: "أترك بياناتي", en: "Leave my details" },
   whatsapp: { ar: "راسلنا واتساب", en: "WhatsApp us" },

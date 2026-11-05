@@ -15,6 +15,7 @@ import {
   shouldShowWelcome,
 } from "@/lib/welcome";
 import { openAuthModal } from "@/lib/authFlow";
+import { welcomeCopy } from "@/lib/phoneTrackingCopy";
 import {
   ArrowLeft,
   ArrowRight,
@@ -43,71 +44,43 @@ function WelcomeExperience({
   primaryRef?: React.Ref<HTMLButtonElement>;
   dialog?: boolean;
 }) {
+  const followUpCopy = welcomeCopy(isEnglish);
   const copy = isEnglish
     ? {
         brand: "Maalamati Care",
         eyebrow: "Every step, thoughtfully handled",
         welcome: "Welcome to Maalamati Care",
         title: "Your requests.\nHandled with care.",
-        intro:
-          "From your first service request to the next update, keep your journey clear and connected.",
+        intro: followUpCopy.intro,
         start: "Let's get started",
         skip: "Skip welcome",
         close: "Close welcome",
         signIn: "Sign in",
         language: "التبديل إلى العربية",
         languageButton: "العربية",
-        footnote:
-          "A short introduction. Your requests are always one step away.",
-        features: [
-          {
-            title: "Request a service",
-            body: "Start with what you need.",
-            icon: FileText,
-          },
-          {
-            title: "Follow every step",
-            body: "Keep requests and updates together.",
-            icon: CheckCircle2,
-          },
-          {
-            title: "Stay connected",
-            body: "Message your service provider in your request.",
-            icon: MessagesSquare,
-          },
-        ],
+        footnote: followUpCopy.footnote,
+        features: followUpCopy.features.map((feature, index) => ({
+          ...feature,
+          icon: [FileText, CheckCircle2, MessagesSquare][index],
+        })),
       }
     : {
         brand: "معاملاتي كير",
         eyebrow: "اهتمام بكل خطوة",
         welcome: "مرحبًا بك في معاملاتي كير",
         title: "معاملاتك،\nبعناية.",
-        intro:
-          "من طلب الخدمة إلى آخر تحديث، اجعل رحلة معاملتك واضحة ومترابطة في مكان واحد.",
+        intro: followUpCopy.intro,
         start: "لنبدأ",
         skip: "تخطي الترحيب",
         close: "إغلاق الترحيب",
         signIn: "الدخول",
         language: "Switch to English",
         languageButton: "English",
-        footnote: "ترحيب مختصر، وطلباتك دائمًا على بُعد خطوة.",
-        features: [
-          {
-            title: "اطلب خدمتك",
-            body: "ابدأ بما تحتاجه من خدمات.",
-            icon: FileText,
-          },
-          {
-            title: "تابع كل خطوة",
-            body: "طلباتك وتحديثاتها في مكان واحد.",
-            icon: CheckCircle2,
-          },
-          {
-            title: "ابقَ على تواصل",
-            body: "راسل مقدم الخدمة داخل طلبك.",
-            icon: MessagesSquare,
-          },
-        ],
+        footnote: followUpCopy.footnote,
+        features: followUpCopy.features.map((feature, index) => ({
+          ...feature,
+          icon: [FileText, CheckCircle2, MessagesSquare][index],
+        })),
       };
   const heading = dialog ? (
     <DialogTitle className="font-display text-2xl font-black leading-[1.5] tracking-[-.04em] text-[#102a43] sm:text-4xl">

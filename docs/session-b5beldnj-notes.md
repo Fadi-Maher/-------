@@ -22,3 +22,11 @@
 
 ## تصميم رسالة التوقف
 أعيد كتابة client/src/components/PhoneVerificationUnavailable.tsx بصيغتين: variant dialog/card، وcontext signin/track، وonNavigate. الأيقونات: Smartphone مع شارة LockKeyhole، وShieldCheck وFileCheck2 وSend وHeadset وHouse. شارة «متوقف مؤقتًا» بنقطة motion-safe:animate-ping. AuthModal يستخدم dialog. CustomerAuthForm يستخدم card. TrackRequest صار صفحة كاملة فيها PublicHeader.
+
+## طلب 2026-10-22 03:53 (ترحيب + إجابات المساعد + رسالة تأكيد)
+- نسخة احتياطية لقاعدة البيانات: /home/ubuntu/maalamati-backup/assistant-knowledge-before-2026-10-22.json (15 سجلًا من assistant_faqs، وlead_bot_settings، وapp_settings).
+- حُدّثت قاعدة البيانات عبر /home/ubuntu/maalamati-faq-update.mjs (نسخة في node_modules/.cache؛ خياران --dry-run و--restore). السجلات: 1050001 (طلب خدمة)، 1050002 (كيف أتابع طلبي؟، وصار سؤاله الإنجليزي "How do I follow up on my request?")، 1050008 (الاسترداد: «رقم الجوال الذي أرسلت به الطلب»)، 1050009 (صار السؤال «أين تُحفظ المرفقات الخاصة بطلبي؟»). حُدّث ملفا server/leadBot/knowledgeSeed.ts وknowledge.test.ts ليطابقاها.
+- بقيت دون تعديل: 1050005 و1050014 (تحذيرات من مشاركة الرموز)، و1050012 (الانضمام كمعقّب، يتطلب التحقق بالجوال المتوقف؛ يُذكر للمستخدم)، و1050003 و1050006 (عروض الأسعار، تتطلب الدخول).
+- ردود الكود المتبقية: مفتاح مشترك shared/phoneTrackingPause.ts قيمته true دائمًا. التعديلات: trackInfo وBOT_BUTTONS.track وopenTrack في shared/leadBot/strings.ts؛ LEAD_BOT_LINKS.track من /track إلى /contact في server/leadBot/settings.ts؛ ردود tracking (الأسطر 202-204) وfiles (247-249) وnew_request (268-272) والترحيب الإنجليزي (290) في shared/orderSupport.ts؛ تعليمات server/publicAssistant.ts (الأسطر 38-39 وقاعدة الأسئلة الخاصة بالحساب).
+- شاشة الترحيب: نصوص client/src/components/BrandWelcome.tsx (الأسطر 46-111: المقدمة والملاحظة الختامية والميزتان 2 و3). تُضاف دالة welcomeCopy إلى client/src/lib/phoneTrackingCopy.ts، مربوطة بوضع الإنتاج.
+- رسالة التأكيد: صيغة received في client/src/components/RequestReceivedConfirmation.tsx. تطمئن العميل بأن فريق الدعم سيتواصل معه قريبًا، مع 3 خطوات تقدم. أنماطها .request-confirm* في client/src/index.css.

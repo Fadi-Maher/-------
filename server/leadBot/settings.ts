@@ -44,7 +44,7 @@ export const RIYADH_OFFSET_MS = 3 * 60 * 60 * 1000;
 
 export const LEAD_BOT_LINKS = {
   requestForm: "/?service={service}#request",
-  track: "/track",
+  track: "/contact",
   agentSignup: "/join-as-agent",
   contact: "/contact",
 } as const;

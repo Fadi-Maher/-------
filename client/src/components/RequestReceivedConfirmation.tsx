@@ -1,5 +1,5 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
-import { ClipboardCheck, Inbox, PhoneCall, Scale, type LucideIcon } from "lucide-react";
+import { ClipboardCheck, Headset, Inbox, PhoneCall, Scale, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -19,11 +19,12 @@ type Copy = { title: string; body: (phone: ReactNode) => ReactNode; steps: Step[
 const COPY: Record<"ar" | "en", Record<Mode, Copy>> = {
   ar: {
     received: {
-      title: "تم استلام طلبك بنجاح",
-      body: (phone) => <>سنتواصل معك على الجوال {phone}</>,
+      title: "وصل طلبك، وفريقنا معك من هنا",
+      body: (phone) => <>شكرًا لك. سيراجع فريق الدعم طلبك ويتواصل معك قريبًا على الرقم {phone} لإطلاعك على المستجدات.</>,
       steps: [
         { icon: Inbox, label: "وصل طلبك إلى فريقنا", done: true },
-        { icon: PhoneCall, label: "نتواصل معك على جوالك", done: false },
+        { icon: Headset, label: "يراجعه فريق الدعم", done: false },
+        { icon: PhoneCall, label: "نتواصل معك عند وجود تحديث", done: false },
       ],
       done: "تم",
       next: "التالي",
@@ -41,11 +42,12 @@ const COPY: Record<"ar" | "en", Record<Mode, Copy>> = {
   },
   en: {
     received: {
-      title: "Your request was received",
-      body: (phone) => <>We will contact you on {phone}</>,
+      title: "Your request is with our team",
+      body: (phone) => <>Thank you. Our support team will review your request and contact you soon on {phone} with updates.</>,
       steps: [
         { icon: Inbox, label: "Received by our team", done: true },
-        { icon: PhoneCall, label: "We contact you by mobile", done: false },
+        { icon: Headset, label: "Reviewed by support", done: false },
+        { icon: PhoneCall, label: "We contact you with an update", done: false },
       ],
       done: "Done",
       next: "Next",

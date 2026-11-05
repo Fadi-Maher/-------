@@ -21,19 +21,19 @@ export const BASIC_KNOWLEDGE: KnowledgeSeedEntry[] = [
   {
     questionAr: "كيف أطلب خدمة؟",
     answerAr:
-      "اضغط «طلب خدمة» في الصفحة الرئيسية، واختر الخدمة وفئتها، واكتب اسمك ورقم جوالك وملخصًا قصيرًا لطلبك. بعد التحقق من رقم جوالك يُحفظ الطلب، وتتابعه برقم الجوال نفسه.",
+      "اضغط «طلب خدمة» في الصفحة الرئيسية، واختر الخدمة وفئتها، واكتب اسمك ورقم جوالك وملخصًا قصيرًا لطلبك، ثم أرسله. يصل طلبك مباشرة إلى فريقنا دون حاجة إلى حساب أو رمز تحقق، ويتواصل معك الفريق على رقم الجوال الذي أدخلته لمتابعة طلبك.",
     questionEn: "How do I request a service?",
     answerEn:
-      "Tap \"Request a service\" on the home page, choose the service and its category, then enter your name, mobile number and a short summary. After you verify your mobile number, your request is saved and you can follow it with the same number.",
+      "Tap \"Request a service\" on the home page, choose the service and its category, enter your name, mobile number and a short summary, then send it. Your request goes straight to our team with no account or verification code needed, and the team contacts you on the mobile number you entered to follow it up.",
     sortOrder: 10,
   },
   {
     questionAr: "كيف أتابع طلبي؟",
     answerAr:
-      "افتح صفحة «تتبع الطلب»، وأدخل رقم جوالك، ثم أدخل رمز التحقق. ستظهر لك جميع طلباتك المرتبطة بهذا الرقم مع حالتها والتحديثات والمرفقات.",
-    questionEn: "How do I track my request?",
+      "بعد إرسال طلبك يراجعه فريق معاملاتي كير، ثم يتواصل معك على رقم الجوال الذي أدخلته في الطلب كلما استجد شيء أو احتاج إلى معلومة منك. إذا كان لديك استفسار عن طلب أرسلته، تواصل معنا من صفحة «تواصل ودعم».",
+    questionEn: "How do I follow up on my request?",
     answerEn:
-      "Open the \"Track request\" page, enter your mobile number and the verification code. You will see all requests linked to that number with their status, updates and attachments.",
+      "After you send your request, the Maalamati Care team reviews it and contacts you on the mobile number you entered whenever there is an update or they need information from you. For questions about a request you have sent, reach us from the \"Contact & support\" page.",
     sortOrder: 20,
   },
   {
@@ -84,17 +84,19 @@ export const BASIC_KNOWLEDGE: KnowledgeSeedEntry[] = [
   {
     questionAr: "كيف أطلب استرداد مبلغ؟",
     answerAr:
-      "أرسل طلبك من صفحة «تواصل ودعم»، واذكر فيه رقم جوالك الموثق ورقم الطلب وسبب الإلغاء، وأرفق إثبات الدفع. لا ترسل بيانات البطاقة أو رموز التحقق أو مستندات هوية غير لازمة. قد تُستثنى الرسوم الحكومية ورسوم الأطراف الخارجية من الاسترداد.",
+      "أرسل طلبك من صفحة «تواصل ودعم»، واذكر فيه رقم الجوال الذي أرسلت به الطلب ورقم الطلب وسبب الإلغاء، وأرفق إثبات الدفع. لا ترسل بيانات البطاقة أو رموز التحقق أو مستندات هوية غير لازمة. قد تُستثنى الرسوم الحكومية ورسوم الأطراف الخارجية من الاسترداد.",
     questionEn: "How do I request a refund?",
     answerEn:
-      "Send your request from the \"Contact & support\" page with your verified mobile number, request number, cancellation reason and proof of payment. Do not send card details, verification codes or unnecessary ID documents. Government and third-party fees may be non-refundable.",
+      "Send your request from the \"Contact & support\" page with the mobile number you used for the request, the request number, the cancellation reason and proof of payment. Do not send card details, verification codes or unnecessary ID documents. Government and third-party fees may be non-refundable.",
     sortOrder: 80,
   },
   {
-    questionAr: "هل تظهر المرفقات في صفحة التتبع؟",
-    answerAr: "نعم، تظهر المرفقات التي يضيفها فريق العمل ضمن سجل التحديثات المرتبط بطلبك.",
-    questionEn: "Do attachments appear on the tracking page?",
-    answerEn: "Yes. Attachments added by the team appear in your request's update history.",
+    questionAr: "أين تُحفظ المرفقات الخاصة بطلبي؟",
+    answerAr:
+      "يحفظ فريق العمل المرفقات والتحديثات في سجل طلبك، ويتواصل معك على رقم الجوال الذي أدخلته بشأن أي مستند مطلوب أو تحديث على طلبك.",
+    questionEn: "Where are my request's attachments kept?",
+    answerEn:
+      "The team keeps attachments and updates in your request record, and contacts you on the mobile number you entered about any required document or update.",
     sortOrder: 90,
   },
   {
