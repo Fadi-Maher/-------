@@ -514,7 +514,7 @@ function HomeArabic() {
           <div className="container relative grid gap-10 lg:grid-cols-[1.18fr_.82fr] lg:items-center">
             <div className="text-center lg:text-right">
               <span className="inline-flex items-center gap-2 rounded-full bg-white/85 px-4 py-2 text-xs font-extrabold text-[#0878f9]"><Sparkles className="h-3.5 w-3.5" />معاملاتي كير لطلبات الأعمال والخدمات</span>
-              <h1 className="font-display mt-6 text-[clamp(1.65rem,4.7vw,3.45rem)] font-extrabold leading-[1.25] tracking-[-0.075em] text-[#102a43]">أول منصة تجمع طلبك <span className="text-[#0878f9]">وعروض المعقّبين في مكان واحد.</span></h1>
+              <h1 className="font-display mt-6 text-[clamp(1.65rem,4.7vw,3.45rem)] font-extrabold leading-[1.25] tracking-[-0.075em] text-[#102a43]">أوول منصة تجمع طلبك <span className="text-[#0878f9]">وعروض المعقّبين في مكان واحد.</span></h1>
               <p className="mt-5 max-w-2xl text-base leading-8 text-[#526d85] sm:text-lg lg:mx-0">{trackingAr.heroLead}</p>
               <div className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start">
                 <button type="button" onClick={() => chooseService("تعقّب المعاملات")} className="rounded-xl bg-[#0878f9] px-6 py-3.5 text-sm font-extrabold text-white shadow-[0_6px_0_#0457ba] transition-all hover:-translate-y-0.5 hover:bg-[#0668d9] active:translate-y-0 active:scale-[0.98]">ابدأ الآن <ArrowLeft className="mr-2 inline h-4 w-4" /></button>
